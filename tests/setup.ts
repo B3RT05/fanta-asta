@@ -1,4 +1,4 @@
-import { afterEach } from 'vitest'
+import { afterEach, beforeEach } from 'vitest'
 import { cleanup } from '@testing-library/react'
 import '@testing-library/jest-dom/vitest'
 
@@ -14,6 +14,8 @@ afterEach(cleanup)
 // window -> global, quindi lo stub rotto di Node resta attivo anche in ambiente
 // jsdom. Sostituiamo il global con un polyfill minimale conforme all'interfaccia
 // Storage, sufficiente per i test (storage.ts usa solo getItem/setItem).
+// Nota: questo polyfill monkeypatch globalThis e window.localStorage per tutto il file di test,
+// ma NON resetta automaticamente lo storage tra test — il beforeEach qui sotto provvede a quello.
 if (typeof window !== 'undefined') {
   class MemoryStorage {
     #data = new Map<string, string>()
@@ -32,4 +34,5 @@ if (typeof window !== 'undefined') {
       writable: true,
     })
   }
+  beforeEach(() => memoryStorage.clear())
 }
