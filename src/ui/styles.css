@@ -1,0 +1,15 @@
+:root { font-family: system-ui, sans-serif; color-scheme: light dark; }
+body { margin: 0; }
+.topbar { display: flex; gap: 1rem; align-items: center; padding: .5rem 1rem; border-bottom: 1px solid #8884; }
+.topbar h1 { font-size: 1.1rem; margin: 0; }
+.topbar button { margin-right: .5rem; }
+.topbar button.active { font-weight: bold; text-decoration: underline; }
+main { padding: 1rem; }
+.error { color: #c00; font-weight: bold; }
+table { border-collapse: collapse; }
+th, td { padding: .25rem .5rem; border-bottom: 1px solid #8883; text-align: left; }
+.tierboard { display: grid; grid-auto-flow: column; gap: .5rem; align-items: start; }
+.tiercol { background: #8881; border-radius: 8px; padding: .5rem; min-width: 11rem; min-height: 8rem; }
+.card { background: #fff2; border: 1px solid #8884; border-radius: 6px; padding: .25rem .5rem; margin: .25rem 0; cursor: grab; }
+.dashboard tr.me { font-weight: bold; }
+.advice-bassa { color: #2a2; } .advice-media { color: #a80; } .advice-alta { color: #c33; }
