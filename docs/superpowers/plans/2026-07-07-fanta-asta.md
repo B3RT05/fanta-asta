@@ -6,7 +6,7 @@
 
 **Architecture:** Vite + React + TypeScript, nessun backend. Tutta la logica di dominio in `src/logic/` come funzioni pure testate con vitest; la UI consuma la logica via un reducer con autosave su localStorage. Deploy statico.
 
-**Tech Stack:** React 18, Vite 5, TypeScript, vitest + @testing-library/react + jsdom, `xlsx` (SheetJS), `@dnd-kit/core`.
+**Tech Stack:** React 19, Vite 8, TypeScript, vitest + @testing-library/react + jsdom, `xlsx` (SheetJS), `@dnd-kit/core`. (Versioni ratificate al Task 1: lo scaffold installa le major correnti; la spec non vincola versioni.)
 
 ## Global Constraints
 
