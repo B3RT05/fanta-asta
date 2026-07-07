@@ -21,12 +21,21 @@ export function reducer(state: AppState, action: Action): AppState {
   switch (action.type) {
     case 'importListone': {
       const proposed = proposeTiers(action.players)
-      const tiers: Record<number, TierId> = {}
+      const isFirstImport = Object.keys(state.tiers).length === 0
+      if (isFirstImport) {
+        const ids = new Set(action.players.map(p => p.id))
+        return {
+          ...state,
+          players: action.players,
+          tiers: proposed.tiers,
+          review: proposed.review,
+          targets: state.targets.filter(id => ids.has(id)),
+        }
+      }
+      const tiers: Record<number, TierId> = { ...state.tiers }
       const review: number[] = []
       for (const p of action.players) {
-        if (state.tiers[p.id] !== undefined) {
-          tiers[p.id] = state.tiers[p.id] // fascia già decisa: si riaggancia per Id
-        } else {
+        if (state.tiers[p.id] === undefined) {
           tiers[p.id] = proposed.tiers[p.id]
           review.push(p.id) // nuovo giocatore: da rivedere
         }

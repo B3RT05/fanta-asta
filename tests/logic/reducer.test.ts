@@ -26,10 +26,24 @@ describe('reducer', () => {
   })
   it('setTier toglie il flag review', () => {
     let s = initialState()
-    s = reducer(s, { type: 'importListone', players: [mk(9)] })
+    s = reducer(s, { type: 'importListone', players: [mk(1)] })
+    s = reducer(s, { type: 'importListone', players: [mk(1), mk(9)] })
     expect(s.review).toContain(9)
     s = reducer(s, { type: 'setTier', playerId: 9, tier: 'scommessa' })
     expect(s.review).not.toContain(9)
+  })
+  it('primo import propone fasce senza flag automatico di review', () => {
+    let s = initialState()
+    s = reducer(s, { type: 'importListone', players: [mk(1), mk(9)] })
+    expect(s.review).not.toContain(1)
+    expect(s.review).not.toContain(9)
+  })
+  it('re-import che omette un giocatore con fascia mantiene la sua fascia in stato', () => {
+    let s = initialState()
+    s = reducer(s, { type: 'importListone', players: [mk(1), mk(2)] })
+    s = reducer(s, { type: 'setTier', playerId: 2, tier: 'top' })
+    s = reducer(s, { type: 'importListone', players: [mk(1)] })
+    expect(s.tiers[2]).toBe('top')
   })
   it('renameTier cambia la label; addTier inserisce prima di skip', () => {
     let s = initialState()

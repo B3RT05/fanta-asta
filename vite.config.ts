@@ -9,7 +9,6 @@ export default defineConfig({
   resolve: { alias: { '@': path.resolve(__dirname, 'src') } },
   test: {
     environment: 'node',
-    environmentMatchGlobs: [['tests/ui/**', 'jsdom']],
     setupFiles: ['tests/setup.ts'],
   },
 })

@@ -31,7 +31,7 @@ export default function AstaTab() {
   })()
 
   const register = () => {
-    if (!selected) return
+    if (!selected || price < 1) return
     dispatch({ type: 'addPurchase', playerId: selected.id, teamIndex, price })
     setPlayerText(''); setPrice(1)
   }
@@ -44,15 +44,17 @@ export default function AstaTab() {
     <main>
       <section>
         <h2>Registra acquisto</h2>
-        <input list="unsold" aria-label="Giocatore" placeholder="cerca giocatore..." value={playerText} onChange={e => setPlayerText(e.target.value)} />
-        <datalist id="unsold">{unsold.map(p => <option key={p.id} value={label(p)} />)}</datalist>
-        <select aria-label="Squadra acquirente" value={teamIndex} onChange={e => setTeamIndex(Number(e.target.value))}>
-          {state.league.teams.map((n, i) => <option key={i} value={i}>{`${i + 1}. ${n}`}</option>)}
-        </select>
-        <input type="number" aria-label="Prezzo" min={1} value={price} onChange={e => setPrice(Number(e.target.value))} />
-        <button onClick={register} disabled={!selected}>Registra</button>
-        {selected && prices.get(selected.id) && <span> previsto {prices.get(selected.id)!.min}–{prices.get(selected.id)!.max}</span>}
-        {warning && <p className="error">{warning}</p>}
+        <form onSubmit={e => { e.preventDefault(); register() }}>
+          <input list="unsold" aria-label="Giocatore" placeholder="cerca giocatore..." value={playerText} onChange={e => setPlayerText(e.target.value)} />
+          <datalist id="unsold">{unsold.map(p => <option key={p.id} value={label(p)} />)}</datalist>
+          <select aria-label="Squadra acquirente" value={teamIndex} onChange={e => setTeamIndex(Number(e.target.value))}>
+            {state.league.teams.map((n, i) => <option key={i} value={i}>{`${i + 1}. ${n}`}</option>)}
+          </select>
+          <input type="number" aria-label="Prezzo" min={1} value={price} onChange={e => setPrice(Number(e.target.value))} />
+          <button type="submit" disabled={!selected}>Registra</button>
+          {selected && prices.get(selected.id) && <span> previsto {prices.get(selected.id)!.min}–{prices.get(selected.id)!.max}</span>}
+          {warning && <p className="error">{warning}</p>}
+        </form>
       </section>
 
       <section className="dashboard">
@@ -100,8 +102,8 @@ export default function AstaTab() {
             <select aria-label={`squadra acquisto ${pu.seq}`} value={pu.teamIndex} onChange={e => dispatch({ type: 'editPurchase', seq: pu.seq, price: pu.price, teamIndex: Number(e.target.value) })}>
               {state.league.teams.map((n, i) => <option key={i} value={i}>{`${i + 1}. ${n}`}</option>)}
             </select>
-            <input type="number" value={pu.price} style={{ width: '4rem' }}
-              onChange={e => dispatch({ type: 'editPurchase', seq: pu.seq, price: Number(e.target.value), teamIndex: pu.teamIndex })} />
+            <input type="number" value={pu.price} style={{ width: '4rem' }} aria-label={`prezzo acquisto ${pu.seq}`}
+              onChange={e => { if (Number(e.target.value) >= 1) dispatch({ type: 'editPurchase', seq: pu.seq, price: Number(e.target.value), teamIndex: pu.teamIndex }) }} />
             <button aria-label={`elimina acquisto ${pu.seq}`} onClick={() => dispatch({ type: 'removePurchase', seq: pu.seq })}>elimina</button>
           </div>
         ))}

@@ -43,4 +43,23 @@ describe('AstaTab', () => {
     expect(screen.getByText('Thuram')).toBeInTheDocument()
     expect(screen.getByText(/rivali|chiamalo|aspetta/i)).toBeInTheDocument()
   })
+  it('premendo Invio nel campo prezzo registra l\'acquisto', async () => {
+    render(<Harness init={init} />)
+    await userEvent.type(screen.getByLabelText('Giocatore'), 'Lautaro (Inter, A)')
+    await userEvent.selectOptions(screen.getByLabelText('Squadra acquirente'), '1')
+    await userEvent.clear(screen.getByLabelText('Prezzo'))
+    await userEvent.type(screen.getByLabelText('Prezzo'), '200')
+    await userEvent.keyboard('{Enter}')
+    const row = screen.getByText('Squadra 2').closest('tr')!
+    expect(within(row).getByText('300')).toBeInTheDocument() // crediti residui
+  })
+  it('un acquisto con prezzo 0 non viene registrato', async () => {
+    render(<Harness init={init} />)
+    await userEvent.type(screen.getByLabelText('Giocatore'), 'Lautaro (Inter, A)')
+    await userEvent.selectOptions(screen.getByLabelText('Squadra acquirente'), '1')
+    await userEvent.clear(screen.getByLabelText('Prezzo'))
+    await userEvent.click(screen.getByRole('button', { name: 'Registra' }))
+    const row = screen.getByText('Squadra 2').closest('tr')!
+    expect(within(row).getByText('500')).toBeInTheDocument() // crediti invariati
+  })
 })

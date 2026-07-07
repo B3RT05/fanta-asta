@@ -16,7 +16,21 @@ export default function SetupTab() {
 
   const onListone = async (f: File | undefined) => {
     if (!f) return
-    try { dispatch({ type: 'importListone', players: parseListone(await readFile(f)) }); setError('') }
+    try {
+      const players = parseListone(await readFile(f))
+      if (state.purchases.length > 0) {
+        const ids = new Set(players.map(p => p.id))
+        const missing = state.purchases.filter(pu => !ids.has(pu.playerId)).length
+        if (missing > 0) {
+          const ok = window.confirm(
+            `${missing} acquisti registrati riferiscono giocatori assenti dal nuovo listone: budget e slot potrebbero risultare incoerenti. Continuare comunque?`
+          )
+          if (!ok) return
+        }
+      }
+      dispatch({ type: 'importListone', players })
+      setError('')
+    }
     catch (e) { setError((e as Error).message) }
   }
   const onStats = async (f: File | undefined) => {

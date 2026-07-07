@@ -14,7 +14,10 @@ type Tab = 'setup' | 'studio' | 'asta'
 export default function App() {
   const [state, dispatch] = useReducer(reducer, undefined, () => loadState() ?? initialState())
   const [tab, setTab] = useState<Tab>('setup')
-  useEffect(() => { saveState(state) }, [state])
+  useEffect(() => {
+    try { saveState(state) }
+    catch (err) { console.warn('salvataggio non riuscito', err) }
+  }, [state])
   return (
     <AppCtx.Provider value={{ state, dispatch }}>
       <header className="topbar">
