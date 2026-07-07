@@ -11,7 +11,7 @@
 ## Global Constraints
 
 - Spec di riferimento: `docs/superpowers/specs/2026-07-07-fanta-asta-design.md` — vincola nomi fasce, formule e default.
-- Fasce default (id → label): `top` → "Top", `semitop` → "Semitop", `scommessa` → "Scommessa", `titolare` → "Titolare buono", `riempitivo` → "Riempitivo", `skip` → "Non mi interessa".
+- Fasce default (id → label): `top` → "Top", `semitop` → "Semitop", `scommessa` → "Scommessa", `titolare` → "Titolare buono", `riempitivo` → "Riempitivo", `skip` → "Non mi interessa". Le fasce sono PERSONALIZZABILI a runtime (rinomina/aggiungi): `AppState.tierDefs` è la fonte di verità per colonne e select; gli id default guidano le euristiche (pricing/advisor); le fasce aggiunte dall'utente sono neutre (moltiplicatore prezzo 1, non sorvegliate dagli allarmi scarsità).
 - Default lega: budget 500, slot `{P:3, D:8, C:8, A:6}`, 8 squadre.
 - `maxBid = crediti − (slotDaRiempireTotali − 1)`, mai sotto 0.
 - Nessuno stato derivato persistito: budget/slot/profili si ricalcolano sempre dagli acquisti.
@@ -178,13 +178,22 @@ export interface Player {
   stats?: PlayerStats
 }
 
-export type TierId = 'top' | 'semitop' | 'scommessa' | 'titolare' | 'riempitivo' | 'skip'
+export type TierId = string // id default: 'top','semitop','scommessa','titolare','riempitivo','skip'; le fasce custom hanno id 'custom-N'
 
-export const TIER_LABELS: Record<TierId, string> = {
-  top: 'Top', semitop: 'Semitop', scommessa: 'Scommessa',
-  titolare: 'Titolare buono', riempitivo: 'Riempitivo', skip: 'Non mi interessa',
+export interface TierDef { id: TierId; label: string }
+
+export const DEFAULT_TIER_DEFS: TierDef[] = [
+  { id: 'top', label: 'Top' },
+  { id: 'semitop', label: 'Semitop' },
+  { id: 'scommessa', label: 'Scommessa' },
+  { id: 'titolare', label: 'Titolare buono' },
+  { id: 'riempitivo', label: 'Riempitivo' },
+  { id: 'skip', label: 'Non mi interessa' },
+]
+
+export function tierLabel(defs: TierDef[], id: TierId): string {
+  return defs.find(d => d.id === id)?.label ?? id
 }
-export const TIER_ORDER: TierId[] = ['top', 'semitop', 'scommessa', 'titolare', 'riempitivo', 'skip']
 
 export interface LeagueConfig {
   budget: number            // default 500
@@ -207,6 +216,7 @@ export interface AppState {
   version: number
   players: Player[]
   league: LeagueConfig
+  tierDefs: TierDef[]
   tiers: Record<number, TierId>
   review: number[]            // playerId "da rivedere"
   targets: number[]           // playerId con stella
@@ -555,7 +565,7 @@ import type { LeagueConfig, Player, PriceRange, Role, TierId } from './types'
 
 // da calibrare con i prezzi reali registrati durante le aste
 export const ROLE_INFLATION: Record<Role, number> = { P: 0.9, D: 0.95, C: 1.0, A: 1.15 }
-export const TIER_MULT: Record<TierId, number> = { top: 1.15, semitop: 1.05, scommessa: 1.0, titolare: 0.95, riempitivo: 1.0, skip: 1.0 }
+export const TIER_MULT: Record<string, number> = { top: 1.15, semitop: 1.05, scommessa: 1.0, titolare: 0.95, riempitivo: 1.0, skip: 1.0 } // fasce custom non elencate -> 1.0
 export const SPREAD = 0.15
 export const SPREAD_SCOMMESSA = 0.30
 
@@ -579,7 +589,7 @@ export function predictPrices(players: Player[], tiers: Record<number, TierId>, 
     const roleBudget = totalCredits * weight(role) / totalWeight
     for (const p of pool) {
       const tier = tiers[p.id] ?? 'riempitivo'
-      const base = Math.max(1, Math.round((p.fvm / sumFvm) * roleBudget * TIER_MULT[tier]))
+      const base = Math.max(1, Math.round((p.fvm / sumFvm) * roleBudget * (TIER_MULT[tier] ?? 1)))
       const spread = tier === 'scommessa' ? SPREAD_SCOMMESSA : SPREAD
       out.set(p.id, {
         base,
@@ -725,7 +735,7 @@ export interface TeamProfile {
   teamIndex: number
   roleSpendPct: Record<Role, number>   // 0..1 sulla spesa totale (0 se nessuna spesa)
   bigClubPct: number                    // 0..1 sugli acquisti
-  tierCounts: Record<TierId, number>
+  tierCounts: Record<string, number>   // solo le fasce presenti negli acquisti
   avgPriceDeltaPct: number | null       // scostamento medio % dal base previsto; null se nessun prezzo previsto
   traits: string[]                      // frasi in italiano, es. "70% del budget sull'attacco"
 }
@@ -802,7 +812,7 @@ export interface TeamProfile {
   teamIndex: number
   roleSpendPct: Record<Role, number>
   bigClubPct: number
-  tierCounts: Record<TierId, number>
+  tierCounts: Record<string, number>
   avgPriceDeltaPct: number | null
   traits: string[]
 }
@@ -814,7 +824,7 @@ export function profileTeam(
   const byId = new Map(players.map(p => [p.id, p]))
   const roleSpend: Record<Role, number> = { P: 0, D: 0, C: 0, A: 0 }
   const rolePrices: Record<Role, number[]> = { P: [], D: [], C: [], A: [] }
-  const tierCounts: Record<TierId, number> = { top: 0, semitop: 0, scommessa: 0, titolare: 0, riempitivo: 0, skip: 0 }
+  const tierCounts: Record<string, number> = {}
   let big = 0
   const deltas: number[] = []
   for (const pu of team.purchases) {
@@ -822,7 +832,8 @@ export function profileTeam(
     if (!pl) continue
     roleSpend[pl.ruolo] += pu.price
     rolePrices[pl.ruolo].push(pu.price)
-    tierCounts[tiers[pu.playerId] ?? 'riempitivo'] += 1
+    const tid = tiers[pu.playerId] ?? 'riempitivo'
+    tierCounts[tid] = (tierCounts[tid] ?? 0) + 1
     if (league.bigClubs.includes(pl.squadra)) big += 1
     const pred = prices.get(pu.playerId)
     if (pred) deltas.push((pu.price - pred.base) / pred.base)
@@ -842,7 +853,7 @@ export function profileTeam(
         traits.push(`${ROLE_NAMES[r]} low cost`)
     }
     if (bigClubPct >= TRAIT_BIG_PCT) traits.push('compra quasi solo dalle big')
-    if (tierCounts.scommessa / n >= TRAIT_SCOMMESSA_PCT) traits.push('accumula scommesse')
+    if ((tierCounts['scommessa'] ?? 0) / n >= TRAIT_SCOMMESSA_PCT) traits.push('accumula scommesse')
     if (avgPriceDeltaPct !== null && avgPriceDeltaPct >= TRAIT_OVERPAY)
       traits.push(`strapaga (+${Math.round(avgPriceDeltaPct * 100)}% sul previsto)`)
     if (avgPriceDeltaPct !== null && avgPriceDeltaPct <= -TRAIT_OVERPAY)
@@ -887,7 +898,7 @@ export function adviseTargets(state: {
 export interface ScarcityAlert { role: Role; tier: TierId; remaining: number; myMissing: number; message: string }
 export function scarcityAlerts(state: {
   purchases: Purchase[]; players: Player[]; tiers: Record<number, TierId>
-  league: LeagueConfig; teams: TeamState[]
+  tierDefs: TierDef[]; league: LeagueConfig; teams: TeamState[]
 }): ScarcityAlert[]
 ```
 
@@ -905,7 +916,7 @@ import { describe, it, expect } from 'vitest'
 import { deriveTeams } from '@/logic/auction'
 import { profileTeam } from '@/logic/profiles'
 import { adviseTargets, scarcityAlerts } from '@/logic/advisor'
-import { DEFAULT_LEAGUE, type Player, type PriceRange, type TierId } from '@/logic/types'
+import { DEFAULT_LEAGUE, DEFAULT_TIER_DEFS, type Player, type PriceRange, type TierId } from '@/logic/types'
 
 const mk = (id: number, ruolo: Player['ruolo'], squadra = 'Inter'): Player =>
   ({ id, nome: `G${id}`, squadra, ruolo, ruoliMantra: [], qtA: 10, qtI: 10, fvm: 100 })
@@ -953,7 +964,7 @@ describe('scarcityAlerts', () => {
     const players = Array.from({ length: 5 }, (_, i) => mk(i + 1, 'D'))
     const tiers: Record<number, TierId> = { 1: 'titolare', 2: 'titolare', 3: 'titolare', 4: 'riempitivo', 5: 'riempitivo' }
     const s = setup([], players, tiers, new Map())
-    const alerts = scarcityAlerts(s)
+    const alerts = scarcityAlerts({ ...s, tierDefs: DEFAULT_TIER_DEFS })
     const d = alerts.find(a => a.role === 'D' && a.tier === 'titolare')
     expect(d).toBeDefined()
     expect(d!.remaining).toBe(3)
@@ -967,7 +978,7 @@ describe('scarcityAlerts', () => {
 - [ ] **Step 3: Implementazione**
 
 ```ts
-import type { LeagueConfig, Player, PriceRange, Purchase, Role, TierId } from './types'
+import { tierLabel, type LeagueConfig, type Player, type PriceRange, type Purchase, type Role, type TierDef, type TierId } from './types'
 import { soldIds, type TeamState } from './auction'
 import { LOWCOST_PRICE, TRAIT_BIG_PCT, type TeamProfile } from './profiles'
 
@@ -1028,13 +1039,13 @@ export interface ScarcityAlert { role: Role; tier: TierId; remaining: number; my
 
 export function scarcityAlerts(state: {
   purchases: Purchase[]; players: Player[]; tiers: Record<number, TierId>
-  league: LeagueConfig; teams: TeamState[]
+  tierDefs: TierDef[]; league: LeagueConfig; teams: TeamState[]
 }): ScarcityAlert[] {
-  const { purchases, players, tiers, league, teams } = state
+  const { purchases, players, tiers, tierDefs, league, teams } = state
   const sold = soldIds(purchases)
   const me = teams[league.myTeamIndex]
   const out: ScarcityAlert[] = []
-  const watched: TierId[] = ['top', 'semitop', 'titolare']
+  const watched: TierId[] = ['top', 'semitop', 'titolare'] // solo fasce default: le custom non sono sorvegliate
   for (const role of ['P', 'D', 'C', 'A'] as Role[]) {
     const myMissing = me.slotsLeft[role]
     if (myMissing <= 0) continue
@@ -1043,7 +1054,7 @@ export function scarcityAlerts(state: {
       if (remaining <= myMissing + SCARCITY_MARGIN) {
         out.push({
           role, tier, remaining, myMissing,
-          message: `Restano ${remaining} "${tier}" in ${ROLE_NAMES[role]} e a te mancano ${myMissing} ${ROLE_NAMES[role].slice(0, 3)}: valuta di muoverti`,
+          message: `Restano ${remaining} "${tierLabel(tierDefs, tier)}" in ${ROLE_NAMES[role]} e a te mancano ${myMissing} ${ROLE_NAMES[role].slice(0, 3)}: valuta di muoverti`,
         })
       }
     }
@@ -1084,6 +1095,8 @@ export type Action =
   | { type: 'importStats'; stats: Map<number, PlayerStats> }
   | { type: 'setLeague'; league: LeagueConfig }
   | { type: 'setTier'; playerId: number; tier: TierId }  // toglie anche il flag review
+  | { type: 'renameTier'; id: TierId; label: string }
+  | { type: 'addTier'; label: string }                   // id auto 'custom-N', inserita prima di 'skip'
   | { type: 'toggleTarget'; playerId: number }
   | { type: 'setRolePlan'; plan: Record<Role, number> }
   | { type: 'addPurchase'; playerId: number; teamIndex: number; price: number }
@@ -1165,6 +1178,15 @@ describe('reducer', () => {
     s = reducer(s, { type: 'setTier', playerId: 9, tier: 'scommessa' })
     expect(s.review).not.toContain(9)
   })
+  it('renameTier cambia la label; addTier inserisce prima di skip', () => {
+    let s = initialState()
+    s = reducer(s, { type: 'renameTier', id: 'top', label: 'Fuoriclasse' })
+    expect(s.tierDefs.find(d => d.id === 'top')!.label).toBe('Fuoriclasse')
+    s = reducer(s, { type: 'addTier', label: 'Vice affidabile' })
+    const ids = s.tierDefs.map(d => d.id)
+    expect(ids.indexOf('custom-1')).toBe(ids.indexOf('skip') - 1)
+    expect(s.tierDefs.find(d => d.id === 'custom-1')!.label).toBe('Vice affidabile')
+  })
 })
 ```
 
@@ -1174,7 +1196,7 @@ describe('reducer', () => {
 
 ```ts
 // src/logic/storage.ts
-import { DEFAULT_LEAGUE, type AppState } from './types'
+import { DEFAULT_LEAGUE, DEFAULT_TIER_DEFS, type AppState } from './types'
 
 export const STORAGE_KEY = 'fanta-asta-state'
 export const SCHEMA_VERSION = 1
@@ -1184,6 +1206,7 @@ export function initialState(): AppState {
     version: SCHEMA_VERSION,
     players: [],
     league: structuredClone(DEFAULT_LEAGUE),
+    tierDefs: structuredClone(DEFAULT_TIER_DEFS),
     tiers: {},
     review: [],
     targets: [],
@@ -1197,7 +1220,7 @@ function isValid(s: unknown): s is AppState {
   if (typeof s !== 'object' || s === null) return false
   const o = s as Record<string, unknown>
   return o.version === SCHEMA_VERSION && Array.isArray(o.players) && Array.isArray(o.purchases)
-    && typeof o.league === 'object' && o.league !== null
+    && Array.isArray(o.tierDefs) && typeof o.league === 'object' && o.league !== null
 }
 
 export function saveState(s: AppState, store: Pick<Storage, 'setItem'> = localStorage): void {
@@ -1237,6 +1260,8 @@ export type Action =
   | { type: 'importStats'; stats: Map<number, PlayerStats> }
   | { type: 'setLeague'; league: LeagueConfig }
   | { type: 'setTier'; playerId: number; tier: TierId }
+  | { type: 'renameTier'; id: TierId; label: string }
+  | { type: 'addTier'; label: string }
   | { type: 'toggleTarget'; playerId: number }
   | { type: 'setRolePlan'; plan: Record<Role, number> }
   | { type: 'addPurchase'; playerId: number; teamIndex: number; price: number }
@@ -1278,6 +1303,15 @@ export function reducer(state: AppState, action: Action): AppState {
         tiers: { ...state.tiers, [action.playerId]: action.tier },
         review: state.review.filter(id => id !== action.playerId),
       }
+    case 'renameTier':
+      return { ...state, tierDefs: state.tierDefs.map(d => d.id === action.id ? { ...d, label: action.label } : d) }
+    case 'addTier': {
+      const id = `custom-${state.tierDefs.filter(d => d.id.startsWith('custom-')).length + 1}`
+      const defs = [...state.tierDefs]
+      const skipIdx = defs.findIndex(d => d.id === 'skip')
+      defs.splice(skipIdx === -1 ? defs.length : skipIdx, 0, { id, label: action.label })
+      return { ...state, tierDefs: defs }
+    }
     case 'toggleTarget':
       return {
         ...state,
@@ -1534,7 +1568,8 @@ export default function AstaTab() { return <main>Asta: carica prima il listone n
 - Filtri: ruolo (P/D/C/A/tutti), fascia, testo di ricerca, checkbox "solo da rivedere".
 - Tabella: nome, squadra, ruolo, fascia (select rapida), FVM, Qt.A, Fm, Pv, prezzo previsto "min–max", stella target, badge "occasione"/"trappola".
   - **Occasione**: `fm ≥ FM_TITOLARE[ruolo]` ∧ `pv ≥ PV_SOLIDO` ∧ fascia ∉ {top, semitop} (rendimento da titolare, prezzo da comprimario). **Trappola**: fascia ∈ {top, semitop} ∧ `pv < PV_TITOLARE` (prezzo alto, storia corta). Riusa le costanti di `tiering.ts`.
-- TierBoard: colonne = TIER_ORDER, card trascinabili (dnd-kit `useDraggable`/`useDroppable`); drop su colonna → `dispatch setTier`. Mostrata SOLO per il ruolo filtrato (con "tutti" il board è nascosto: 500 card sono ingestibili).
+- TierBoard: colonne = `state.tierDefs` (ordine incluso), card trascinabili (dnd-kit `useDraggable`/`useDroppable`); drop su colonna → `dispatch setTier`. Mostrata SOLO per il ruolo filtrato (con "tutti" il board è nascosto: 500 card sono ingestibili).
+- Gestione fasce (sezione `<details>` "Gestisci fasce"): un input di rinomina per ogni fascia (`renameTier`) + bottone "+ fascia" (`addTier`).
 - Piano budget: input numerico per ruolo (`setRolePlan`) + somma vs budget con warning se sfora.
 
 - [ ] **Step 1: Test fallente**
@@ -1584,6 +1619,14 @@ describe('StudioTab', () => {
     await userEvent.click(within(row).getByRole('button', { name: /target/i }))
     expect(within(row).getByRole('button', { name: /target/i })).toHaveTextContent('★')
   })
+  it('rinomina fascia: le select di riga mostrano la nuova label', async () => {
+    render(<Harness init={init} />)
+    const input = screen.getByLabelText('Nome fascia top')
+    await userEvent.clear(input)
+    await userEvent.type(input, 'Fuoriclasse')
+    const row = screen.getByText('Lautaro').closest('tr')!
+    expect(within(row).getByRole('option', { name: 'Fuoriclasse' })).toBeInTheDocument()
+  })
 })
 ```
 
@@ -1597,7 +1640,7 @@ describe('StudioTab', () => {
 import { DndContext, useDraggable, useDroppable, type DragEndEvent } from '@dnd-kit/core'
 import { useContext } from 'react'
 import { AppCtx } from './App'
-import { TIER_LABELS, TIER_ORDER, type Player, type TierId } from '@/logic/types'
+import type { Player, TierDef, TierId } from '@/logic/types'
 
 function Card({ player }: { player: Player }) {
   const { attributes, listeners, setNodeRef, transform } = useDraggable({ id: player.id })
@@ -1609,11 +1652,11 @@ function Card({ player }: { player: Player }) {
   )
 }
 
-function Column({ tier, players }: { tier: TierId; players: Player[] }) {
-  const { setNodeRef, isOver } = useDroppable({ id: tier })
+function Column({ def, players }: { def: TierDef; players: Player[] }) {
+  const { setNodeRef, isOver } = useDroppable({ id: def.id })
   return (
     <div ref={setNodeRef} className="tiercol" style={isOver ? { outline: '2px solid #48f' } : undefined}>
-      <h3>{TIER_LABELS[tier]} ({players.length})</h3>
+      <h3>{def.label} ({players.length})</h3>
       {players.map(p => <Card key={p.id} player={p} />)}
     </div>
   )
@@ -1622,14 +1665,14 @@ function Column({ tier, players }: { tier: TierId; players: Player[] }) {
 export default function TierBoard({ players }: { players: Player[] }) {
   const { state, dispatch } = useContext(AppCtx)
   const onDragEnd = (e: DragEndEvent) => {
-    if (e.over && TIER_ORDER.includes(e.over.id as TierId))
+    if (e.over && state.tierDefs.some(d => d.id === e.over!.id))
       dispatch({ type: 'setTier', playerId: Number(e.active.id), tier: e.over.id as TierId })
   }
   return (
     <DndContext onDragEnd={onDragEnd}>
       <div className="tierboard">
-        {TIER_ORDER.map(t => (
-          <Column key={t} tier={t} players={players.filter(p => state.tiers[p.id] === t)} />
+        {state.tierDefs.map(d => (
+          <Column key={d.id} def={d} players={players.filter(p => state.tiers[p.id] === d.id)} />
         ))}
       </div>
     </DndContext>
@@ -1645,7 +1688,7 @@ import { AppCtx } from './App'
 import TierBoard from './TierBoard'
 import { predictPrices } from '@/logic/pricing'
 import { FM_TITOLARE, PV_SOLIDO, PV_TITOLARE } from '@/logic/tiering'
-import { TIER_LABELS, TIER_ORDER, type Role, type TierId } from '@/logic/types'
+import type { Role, TierId } from '@/logic/types'
 
 export default function StudioTab() {
   const { state, dispatch } = useContext(AppCtx)
@@ -1683,13 +1726,22 @@ export default function StudioTab() {
         <span> Totale {planTotal}/{state.league.budget} {planTotal > state.league.budget && <strong className="error">sfori!</strong>}</span>
       </section>
 
+      <details>
+        <summary>Gestisci fasce</summary>
+        {state.tierDefs.map(d => (
+          <label key={d.id}> <input aria-label={`Nome fascia ${d.id}`} value={d.label}
+            onChange={e => dispatch({ type: 'renameTier', id: d.id, label: e.target.value })} /></label>
+        ))}
+        <button onClick={() => dispatch({ type: 'addTier', label: `Fascia ${state.tierDefs.length + 1}` })}>+ fascia</button>
+      </details>
+
       <section>
         <label>Ruolo <select aria-label="Ruolo" value={role} onChange={e => setRole(e.target.value as Role | 'tutti')}>
           <option value="tutti">tutti</option><option>P</option><option>D</option><option>C</option><option>A</option>
         </select></label>
         <label> Fascia <select value={tierFilter} onChange={e => setTierFilter(e.target.value as TierId | 'tutte')}>
           <option value="tutte">tutte</option>
-          {TIER_ORDER.map(t => <option key={t} value={t}>{TIER_LABELS[t]}</option>)}
+          {state.tierDefs.map(d => <option key={d.id} value={d.id}>{d.label}</option>)}
         </select></label>
         <label> Cerca <input value={q} onChange={e => setQ(e.target.value)} /></label>
         <label> <input type="checkbox" checked={onlyReview} onChange={e => setOnlyReview(e.target.checked)} /> solo da rivedere ({state.review.length})</label>
@@ -1711,7 +1763,7 @@ export default function StudioTab() {
                 <td>{p.ruolo}</td>
                 <td><select aria-label="Fascia" value={state.tiers[p.id]}
                   onChange={e => dispatch({ type: 'setTier', playerId: p.id, tier: e.target.value as TierId })}>
-                  {TIER_ORDER.map(t => <option key={t} value={t}>{TIER_LABELS[t]}</option>)}
+                  {state.tierDefs.map(d => <option key={d.id} value={d.id}>{d.label}</option>)}
                 </select></td>
                 <td>{p.fvm}</td><td>{p.qtA}</td>
                 <td>{p.stats?.fm ?? '—'}</td><td>{p.stats?.pv ?? '—'}</td>
@@ -1845,7 +1897,7 @@ export default function AstaTab() {
   }
 
   const advice = adviseTargets({ targets: state.targets, purchases: state.purchases, players: state.players, tiers: state.tiers, prices, league: state.league, teams, profiles })
-  const alerts = scarcityAlerts({ purchases: state.purchases, players: state.players, tiers: state.tiers, league: state.league, teams })
+  const alerts = scarcityAlerts({ purchases: state.purchases, players: state.players, tiers: state.tiers, tierDefs: state.tierDefs, league: state.league, teams })
   const history = [...state.purchases].sort((a, b) => b.seq - a.seq)
 
   return (
@@ -1975,6 +2027,6 @@ jobs:
 
 ## Self-Review (eseguita)
 
-1. **Copertura spec**: import 2 file ✓ (T3-4), re-import per Id ✓ (T10 reducer), fasce auto + review + drag ✓ (T5, T12), previsione a range con costanti "da calibrare" ✓ (T6), cruscotto/maxBid ✓ (T7, T13), profili "Amici 1-5" ✓ (T8, test omonimi), note pre-asta ✓ (T10, T13), consigli+timing+scarsità ✓ (T9, T13), piano budget per ruolo ✓ (T12), storage versionato + export/import ✓ (T10-11), warning fuori-regola con override ✓ (T13), deploy statico ✓ (T14). Fascia rinominabile/estendibile: rimandata (i TierId sono fissi in questa versione) — semplificazione YAGNI consapevole rispetto alla spec, da annotare nel commit del Task 2.
+1. **Copertura spec**: import 2 file ✓ (T3-4), re-import per Id ✓ (T10 reducer), fasce auto + review + drag ✓ (T5, T12), previsione a range con costanti "da calibrare" ✓ (T6), cruscotto/maxBid ✓ (T7, T13), profili "Amici 1-5" ✓ (T8, test omonimi), note pre-asta ✓ (T10, T13), consigli+timing+scarsità ✓ (T9, T13), piano budget per ruolo ✓ (T12), storage versionato + export/import ✓ (T10-11), warning fuori-regola con override ✓ (T13), deploy statico ✓ (T14), fasce personalizzabili rinomina/aggiungi ✓ (T2 tierDefs, T10 renameTier/addTier, T12 "Gestisci fasce"; decisione utente 2026-07-07).
 2. **Placeholder**: nessun TBD; ogni step con codice ha il codice.
 3. **Coerenza tipi**: firme di `deriveTeams`/`profileTeam`/`adviseTargets`/`predictPrices` identiche tra Task 7-9 e i consumer UI (T12-13); `TeamProfile.traits` è la sola interfaccia usata dal matching low-cost in advisor (stringa esatta `"<ruolo> low cost"`), documentata in entrambi i task.
