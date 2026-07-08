@@ -22,11 +22,19 @@ export function predictPrices(players: Player[], tiers: Record<number, TierId>, 
   const out = new Map<number, PriceRange>()
   for (const role of roles) {
     const pool = pools.get(role)!
-    const sumFvm = pool.reduce((s, p) => s + p.fvm, 0)
+    const sumFvm = pool.reduce((s, p) => s + p.fvm, 0) || 1
     const roleBudget = totalCredits * weight(role) / totalWeight
-    for (const p of pool) {
+    // prezzo grezzo (proporzionale a FVM, corretto per fascia)
+    const raw = pool.map(p => {
       const tier = tiers[p.id] ?? 'riempitivo'
-      const base = Math.max(1, Math.round((p.fvm / sumFvm) * roleBudget * (TIER_MULT[tier] ?? 1)))
+      return { p, tier, v: (p.fvm / sumFvm) * roleBudget * (TIER_MULT[tier] ?? 1) }
+    })
+    // normalizza: la somma dei prezzi del ruolo torna al budget di ruolo
+    // (i moltiplicatori di fascia non devono gonfiare il totale della lega)
+    const rawSum = raw.reduce((s, r) => s + r.v, 0) || 1
+    const norm = roleBudget / rawSum
+    for (const { p, tier, v } of raw) {
+      const base = Math.max(1, Math.round(v * norm))
       const spread = tier === 'scommessa' ? SPREAD_SCOMMESSA : SPREAD
       out.set(p.id, {
         base,

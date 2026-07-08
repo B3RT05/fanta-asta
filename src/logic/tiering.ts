@@ -8,6 +8,10 @@ export const REVIEW_BAND = 0.03
 export const SCORE_PCT_TOP = 0.90
 export const SCORE_PCT_SEMITOP = 0.70
 export const SCORE_PCT_TITOLARE = 0.35
+// fallback FVM (quando il file statistiche NON è caricato): fasce dal valore di mercato
+export const FVM_PCT_TOP = 0.90
+export const FVM_PCT_SEMITOP = 0.72
+export const FVM_PCT_TITOLARE = 0.45
 
 // usato da StudioTab per i badge occasione/trappola
 export const FM_TITOLARE: Record<Role, number> = { P: 5.4, D: 6.0, C: 6.3, A: 6.5 }
@@ -45,10 +49,19 @@ function metric(p: Player, key: MetricKey): number {
   return 0
 }
 
+const ROLES: Role[] = ['P', 'D', 'C', 'A']
+
 export function proposeTiers(players: Player[]): { tiers: Record<number, TierId>; review: number[] } {
+  // Le fasce da rendimento richiedono il file statistiche. Se non è stato
+  // caricato (nessun giocatore ha statistiche) ripieghiamo sulle fasce da FVM,
+  // altrimenti collasserebbe tutto in "scommessa"/"riempitivo".
+  return players.some(p => p.stats) ? tiersByRendimento(players) : tiersByFvm(players)
+}
+
+function tiersByRendimento(players: Player[]): { tiers: Record<number, TierId>; review: number[] } {
   const tiers: Record<number, TierId> = {}
   const review: number[] = []
-  const roles: Role[] = ['P', 'D', 'C', 'A']
+  const roles = ROLES
 
   for (const role of roles) {
     const pool = players.filter(p => p.ruolo === role)
@@ -100,6 +113,28 @@ export function proposeTiers(players: Player[]): { tiers: Record<number, TierId>
       const heavyNoHistory = p.qtA >= 15 && pv < PV_TITOLARE
       if (nearCut || heavyNoHistory) review.push(p.id)
     }
+  }
+  return { tiers, review }
+}
+
+// Fallback: solo listone, niente statistiche -> fasce per percentile di FVM.
+function tiersByFvm(players: Player[]): { tiers: Record<number, TierId>; review: number[] } {
+  const tiers: Record<number, TierId> = {}
+  const review: number[] = []
+  for (const role of ROLES) {
+    const pool = players.filter(p => p.ruolo === role).sort((a, b) => a.fvm - b.fvm)
+    pool.forEach((p, i) => {
+      const pct = pool.length > 1 ? i / (pool.length - 1) : 1
+      let tier: TierId
+      if (pct >= FVM_PCT_TOP) tier = 'top'
+      else if (pct >= FVM_PCT_SEMITOP) tier = 'semitop'
+      else if (pct >= FVM_PCT_TITOLARE) tier = 'titolare'
+      else tier = 'riempitivo'
+      tiers[p.id] = tier
+      const nearCut = Math.abs(pct - FVM_PCT_TOP) <= REVIEW_BAND || Math.abs(pct - FVM_PCT_SEMITOP) <= REVIEW_BAND
+      const inAscesa = p.qtA - p.qtI >= DIFF_ASCESA
+      if (nearCut || inAscesa) review.push(p.id)
+    })
   }
   return { tiers, review }
 }

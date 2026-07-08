@@ -18,10 +18,19 @@ describe('proposeTiers (listone reale)', () => {
   it('i big sono top', () => {
     expect(tiers[2764]).toBe('top') // Lautaro: bomber titolare
   })
-  it('senza statistiche con FVM alto -> scommessa', () => {
+  it('senza statistiche con FVM alto -> scommessa (quando gli ALTRI hanno le stats)', () => {
     const fake = players.map(p => p.id === 7126 ? { ...p, stats: undefined } : p)
     const t = proposeTiers(fake).tiers
     expect(t[7126]).toBe('scommessa') // Baturina, FVM 95
+  })
+  it('FALLBACK: senza NESSUNA statistica ripiega su fasce da FVM (non tutte scommessa)', () => {
+    const noStats = players.map(p => ({ ...p, stats: undefined }))
+    const { tiers } = proposeTiers(noStats)
+    const counts: Record<string, number> = {}
+    for (const p of noStats) counts[tiers[p.id]] = (counts[tiers[p.id]] ?? 0) + 1
+    expect(counts.top ?? 0).toBeGreaterThan(0)        // esistono dei Top
+    expect(counts.semitop ?? 0).toBeGreaterThan(0)    // esistono dei Semitop
+    expect(counts.scommessa ?? 0).toBeLessThan(noStats.length / 2) // le scommesse NON sono la maggioranza
   })
   it('segnala casi da rivedere', () => {
     expect(review.length).toBeGreaterThan(0)
