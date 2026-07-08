@@ -248,6 +248,13 @@ td button:hover { background: transparent; transform: scale(1.15); }
 .b-trap { background: var(--danger-soft); color: var(--danger); border-color: color-mix(in srgb, var(--danger) 35%, transparent); }
 .b-neu  { background: var(--surface-3); color: var(--faint); border-color: var(--border-strong); }
 
+/* tag/sottocategorie: pro (verde) · malus (rosso) · risk (ambra) */
+.tags { display: flex; flex-wrap: wrap; gap: .25rem; }
+.tag-pro   { background: var(--primary-soft); color: var(--primary); border-color: var(--primary-line); }
+.tag-malus { background: var(--danger-soft); color: var(--danger); border-color: color-mix(in srgb, var(--danger) 35%, transparent); }
+.tag-risk  { background: var(--amber-soft); color: var(--amber); border-color: color-mix(in srgb, var(--amber) 40%, transparent); }
+.tagcell { white-space: normal; min-width: 12rem; max-width: 20rem; }
+
 /* ---------------- Tier board (drag & drop) ---------------- */
 .tierboard {
   display: grid; grid-auto-flow: column; grid-auto-columns: minmax(11.5rem, 1fr);

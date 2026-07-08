@@ -4,6 +4,7 @@ import { deriveTeams, soldIds } from '@/logic/auction'
 import { profileTeam } from '@/logic/profiles'
 import { adviseTargets, scarcityAlerts } from '@/logic/advisor'
 import { predictPrices } from '@/logic/pricing'
+import { computeTags, dominantTags } from '@/logic/tags'
 import { downloadBackup } from './backup'
 import type { Role } from '@/logic/types'
 
@@ -16,6 +17,7 @@ export default function AstaTab() {
   const prices = useMemo(() => predictPrices(state.players, state.tiers, state.league), [state.players, state.tiers, state.league])
   const teams = useMemo(() => deriveTeams(state.purchases, state.league, state.players), [state.purchases, state.league, state.players])
   const profiles = useMemo(() => teams.map(t => profileTeam(t, state.players, state.tiers, prices, state.league)), [teams, state.players, state.tiers, prices, state.league])
+  const tagsMap = useMemo(() => computeTags(state.players), [state.players])
   if (state.players.length === 0) return <main>Asta: carica prima il listone nel Setup.</main>
 
   const sold = soldIds(state.purchases)
@@ -86,7 +88,13 @@ export default function AstaTab() {
         {teams.filter(t => t.teamIndex !== state.league.myTeamIndex).map(t => (
           <div key={t.teamIndex}>
             <strong>{`Profilo ${t.name}`}</strong>: {profiles[t.teamIndex].traits.join(' · ') || 'ancora nessun pattern'}
-            <br /><textarea placeholder="note pre-asta" value={state.teamNotes[t.teamIndex] ?? ''}
+            {(() => {
+              const dom = dominantTags(t.purchases.map(pu => pu.playerId), tagsMap)
+              return dom.length > 0
+                ? <div className="tags">{dom.map(d => <span key={d.label} className="badge tag-pro">{d.label} ×{d.count}</span>)}</div>
+                : null
+            })()}
+            <textarea placeholder="note pre-asta" value={state.teamNotes[t.teamIndex] ?? ''}
               onChange={e => dispatch({ type: 'setTeamNote', teamIndex: t.teamIndex, note: e.target.value })} />
           </div>
         ))}

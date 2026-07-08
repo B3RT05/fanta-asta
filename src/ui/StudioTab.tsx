@@ -3,6 +3,7 @@ import { AppCtx } from './App'
 import TierBoard from './TierBoard'
 import PlayerModal from './PlayerModal'
 import { predictPrices } from '@/logic/pricing'
+import { computeTags } from '@/logic/tags'
 import { FM_TITOLARE, PV_SOLIDO, PV_TITOLARE } from '@/logic/tiering'
 import type { Role, TierId } from '@/logic/types'
 
@@ -12,16 +13,26 @@ export default function StudioTab() {
   const [tierFilter, setTierFilter] = useState<TierId | 'tutte'>('tutte')
   const [q, setQ] = useState('')
   const [onlyReview, setOnlyReview] = useState(false)
+  const [tagFilter, setTagFilter] = useState('tutte')
   const [detailId, setDetailId] = useState<number | null>(null)
 
   const prices = useMemo(() => predictPrices(state.players, state.tiers, state.league), [state.players, state.tiers, state.league])
+  const tagsMap = useMemo(() => computeTags(state.players), [state.players])
   if (state.players.length === 0) return <main>Studio: carica prima il listone nel Setup.</main>
+
+  // elenco sottocategorie presenti (per il filtro)
+  const tagOptions = (() => {
+    const seen = new Map<string, string>()
+    for (const list of tagsMap.values()) for (const t of list) seen.set(t.id, t.label)
+    return [...seen].sort((a, b) => a[1].localeCompare(b[1]))
+  })()
 
   const review = new Set(state.review)
   const shown = state.players.filter(p =>
     (role === 'tutti' || p.ruolo === role) &&
     (tierFilter === 'tutte' || state.tiers[p.id] === tierFilter) &&
     (!onlyReview || review.has(p.id)) &&
+    (tagFilter === 'tutte' || (tagsMap.get(p.id) ?? []).some(t => t.id === tagFilter)) &&
     p.nome.toLowerCase().includes(q.toLowerCase()),
   ).sort((a, b) => b.fvm - a.fvm)
 
@@ -66,12 +77,16 @@ export default function StudioTab() {
         </select></label>
         <label> Cerca <input value={q} onChange={e => setQ(e.target.value)} /></label>
         <label> <input type="checkbox" checked={onlyReview} onChange={e => setOnlyReview(e.target.checked)} /> solo da rivedere ({state.review.length})</label>
+        <label> Sottocategoria <select aria-label="Sottocategoria" value={tagFilter} onChange={e => setTagFilter(e.target.value)}>
+          <option value="tutte">tutte</option>
+          {tagOptions.map(([id, label]) => <option key={id} value={id}>{label}</option>)}
+        </select></label>
       </section>
 
       {role !== 'tutti' && <TierBoard players={state.players.filter(p => p.ruolo === role)} />}
 
       <table>
-        <thead><tr><th></th><th>Nome</th><th>Squadra</th><th>R</th><th>Fascia</th><th>FVM</th><th>Qt.A</th><th>Fm</th><th>Pv</th><th>Prev.</th><th></th></tr></thead>
+        <thead><tr><th></th><th>Nome</th><th>Squadra</th><th>R</th><th>Fascia</th><th>FVM</th><th>Qt.A</th><th>Fm</th><th>Pv</th><th>Prev.</th><th></th><th>Tag</th></tr></thead>
         <tbody>
           {shown.map(p => {
             const pr = prices.get(p.id)
@@ -94,6 +109,9 @@ export default function StudioTab() {
                   : isTrappola(p)
                     ? <span className="badge b-trap">trappola</span>
                     : <span className="badge b-neu">neutro</span>}</td>
+                <td className="tagcell"><div className="tags">
+                  {(tagsMap.get(p.id) ?? []).map(t => <span key={t.id} className={`badge tag-${t.kind}`}>{t.label}</span>)}
+                </div></td>
               </tr>
             )
           })}
@@ -104,7 +122,7 @@ export default function StudioTab() {
         const p = state.players.find(pl => pl.id === detailId)
         if (!p) return null
         return <PlayerModal player={p} tierDefs={state.tierDefs} tier={state.tiers[p.id]}
-          price={prices.get(p.id)} isTarget={state.targets.includes(p.id)} onClose={() => setDetailId(null)} />
+          price={prices.get(p.id)} isTarget={state.targets.includes(p.id)} tags={tagsMap.get(p.id) ?? []} onClose={() => setDetailId(null)} />
       })()}
     </main>
   )

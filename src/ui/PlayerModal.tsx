@@ -1,4 +1,5 @@
 import { tierLabel, type Player, type PlayerStats, type PriceRange, type TierDef, type TierId } from '@/logic/types'
+import type { Tag } from '@/logic/tags'
 
 const ROLE_LABEL: Record<string, string> = { P: 'Portiere', D: 'Difensore', C: 'Centrocampista', A: 'Attaccante' }
 
@@ -23,12 +24,13 @@ function Row({ k, v }: { k: string; v: React.ReactNode }) {
   return <div className="kv"><dt>{k}</dt><dd>{v}</dd></div>
 }
 
-export default function PlayerModal({ player, tierDefs, tier, price, isTarget, onClose }: {
+export default function PlayerModal({ player, tierDefs, tier, price, isTarget, tags, onClose }: {
   player: Player
   tierDefs: TierDef[]
   tier: TierId
   price?: PriceRange
   isTarget: boolean
+  tags: Tag[]
   onClose: () => void
 }) {
   const p = player
@@ -43,6 +45,15 @@ export default function PlayerModal({ player, tierDefs, tier, price, isTarget, o
           </div>
           <button aria-label="Chiudi" onClick={onClose}>✕</button>
         </header>
+
+        {tags.length > 0 && (
+          <section className="modal-block">
+            <h3>Caratteristiche</h3>
+            <div className="tags">
+              {tags.map(t => <span key={t.id} className={`badge tag-${t.kind}`}>{t.label}</span>)}
+            </div>
+          </section>
+        )}
 
         <section className="modal-block">
           <h3>Valutazione</h3>
