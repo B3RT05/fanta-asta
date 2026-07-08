@@ -63,4 +63,26 @@ describe('generateStrategy', () => {
     expect(s.targets.length).toBeGreaterThan(0)
     expect(s.notes.length).toBeGreaterThan(20)
   })
+  it('la lista è una rosa completa (tutti gli slot) ed equilibrata, non solo top', () => {
+    const s = generateStrategy('', players, tiers, tagsMap, prices, DEFAULT_LEAGUE)
+    const L = DEFAULT_LEAGUE
+    // riempie ogni reparto (limitato dal pool disponibile)
+    for (const r of ['P', 'D', 'C', 'A'] as const) {
+      const inRole = s.targets.filter(id => players.find(p => p.id === id)?.ruolo === r).length
+      const poolSize = players.filter(p => p.ruolo === r).length
+      expect(inRole).toBe(Math.min(L.slots[r], poolSize))
+    }
+    // non solo top: include fasce basse (titolari/riempitivi)
+    const tierset = new Set(s.targets.map(id => tiers[id]))
+    expect([...tierset].some(t => t !== 'top' && t !== 'semitop')).toBe(true)
+    // include riempitivi da 1 credito
+    expect(Object.values(s.caps).some(c => c === 1)).toBe(true)
+  })
+  it('"tante scommesse" aumenta il numero di scommesse in rosa', () => {
+    const base = generateStrategy('', players, tiers, tagsMap, prices, DEFAULT_LEAGUE)
+    const risk = generateStrategy('voglio tante scommesse', players, tiers, tagsMap, prices, DEFAULT_LEAGUE)
+    const countScomm = (s: typeof base) => s.targets.filter(id => tiers[id] === 'scommessa').length
+    expect(countScomm(risk)).toBeGreaterThanOrEqual(countScomm(base))
+    expect(risk.notes).toMatch(/scommesse/i)
+  })
 })

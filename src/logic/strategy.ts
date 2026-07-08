@@ -16,6 +16,9 @@ const TIER_RANK: Record<string, number> = { top: 5, semitop: 4, titolare: 3, sco
 // ripartizione di base (%) — attacco-oriented tipico del Classic
 const BASE: Record<Role, number> = { P: 0.08, D: 0.18, C: 0.34, A: 0.40 }
 
+// titolari "garantiti" per reparto (i migliori; il resto della rosa = scommesse + riempitivi)
+const STARTERS: Record<Role, number> = { P: 1, D: 5, C: 5, A: 3 }
+
 // tag preferiti per intento (per la scelta degli obiettivi)
 const PREF: Record<string, string[]> = {
   attacco: ['bomber', 'cecchino'],
@@ -62,37 +65,72 @@ export function generateStrategy(
     else rolePlan[r] = league.budget - acc // l'ultimo prende il resto (somma esatta)
   })
 
-  // selezione obiettivi per ruolo, entro il budget di reparto
+  // rosa completa ed equilibrata: riempi TUTTI gli slot di ogni reparto con
+  // titolari garantiti + qualche scommessa + riempitivi da 1 credito.
+  const scommPerRole: Record<Role, number> = wantScommesse
+    ? { P: 0, D: 2, C: 2, A: 2 }
+    : { P: 0, D: 1, C: 1, A: 1 }
   const targets: number[] = []
   const caps: Record<number, number> = {}
-  for (const role of roles) {
-    const pref = PREF[role === 'A' ? 'attacco' : role === 'D' ? 'difesa' : role === 'C' ? 'centrocampo' : 'x'] ?? []
-    const cand = players.filter(p => p.ruolo === role).map(p => {
-      const tags = tagsMap.get(p.id) ?? []
-      const tagBonus = tags.some(t => pref.includes(t.id)) ? 1 : 0
-      const scommBonus = wantScommesse && tiers[p.id] === 'scommessa' ? 1 : 0
-      return { id: p.id, fvm: p.fvm, rank: TIER_RANK[tiers[p.id]] ?? 0, tagBonus, scommBonus, price: prices.get(p.id)?.base ?? 1 }
-    }).sort((a, b) =>
-      (b.rank + b.tagBonus + b.scommBonus) - (a.rank + a.tagBonus + a.scommBonus) || b.fvm - a.fvm)
+  let nStarters = 0, nScomm = 0, nFiller = 0
 
-    const maxT = Math.max(2, Math.ceil(league.slots[role] * 0.6))
-    let spent = 0
-    for (const c of cand) {
-      if (targets.length && spent >= rolePlan[role] * 0.9 && (targets.filter(id => players.find(p => p.id === id)?.ruolo === role).length) >= 2) break
-      if (targets.filter(id => players.find(p => p.id === id)?.ruolo === role).length >= maxT) break
-      targets.push(c.id); caps[c.id] = c.price; spent += c.price
-    }
+  for (const role of roles) {
+    const slots = league.slots[role]
+    const pref = PREF[role === 'A' ? 'attacco' : role === 'D' ? 'difesa' : role === 'C' ? 'centrocampo' : 'x'] ?? []
+    const pool = players.filter(p => p.ruolo === role)
+    const meta = new Map(pool.map(p => {
+      const tags = tagsMap.get(p.id) ?? []
+      return [p.id, {
+        rank: TIER_RANK[tiers[p.id]] ?? 0,
+        tagBonus: tags.some(t => pref.includes(t.id)) ? 1 : 0,
+        isScomm: tiers[p.id] === 'scommessa' || tags.some(t => t.id === 'ascesa'),
+        price: prices.get(p.id)?.base ?? 1,
+        fvm: p.fvm,
+      }]
+    }))
+    const m = (id: number) => meta.get(id)!
+    const used = new Set<number>()
+
+    // 1) titolari garantiti = i migliori per fascia/qualità
+    const byQuality = [...pool].sort((a, b) => (m(b.id).rank + m(b.id).tagBonus) - (m(a.id).rank + m(a.id).tagBonus) || m(b.id).fvm - m(a.id).fvm)
+    const starterQ = Math.min(STARTERS[role], slots)
+    const starters = byQuality.slice(0, starterQ)
+    starters.forEach(p => used.add(p.id))
+
+    // 2) scommesse (fascia scommessa o in ascesa)
+    const scommQ = Math.min(scommPerRole[role], slots - starters.length)
+    const scommesse = byQuality.filter(p => !used.has(p.id))
+      .sort((a, b) => (Number(m(b.id).isScomm) - Number(m(a.id).isScomm)) || m(b.id).fvm - m(a.id).fvm)
+      .slice(0, scommQ)
+    scommesse.forEach(p => used.add(p.id))
+
+    // 3) riempitivi = i più economici per completare gli slot
+    const fillerQ = Math.max(0, slots - starters.length - scommesse.length)
+    const fillers = pool.filter(p => !used.has(p.id))
+      .sort((a, b) => m(a.id).price - m(b.id).price || m(a.id).fvm - m(b.id).fvm)
+      .slice(0, fillerQ)
+    fillers.forEach(p => used.add(p.id))
+
+    // tetti: riempitivi a 1, il resto del budget di reparto sui titolari/scommesse (∝ prezzo previsto)
+    const nonFiller = [...starters, ...scommesse]
+    const rawSum = nonFiller.reduce((s, p) => s + m(p.id).price, 0) || 1
+    const avail = Math.max(nonFiller.length, rolePlan[role] - fillers.length)
+    const scale = avail / rawSum
+    for (const p of nonFiller) { targets.push(p.id); caps[p.id] = Math.max(1, Math.round(m(p.id).price * scale)) }
+    for (const p of fillers) { targets.push(p.id); caps[p.id] = 1 }
+    nStarters += starters.length; nScomm += scommesse.length; nFiller += fillers.length
   }
 
   const pct = (r: Role) => Math.round(100 * rolePlan[r] / league.budget)
+  const slotsTot = roles.reduce((s, r) => s + league.slots[r], 0)
   const notes = [
     `Strategia generata${recognized.length ? ' (riconosciuto: ' + recognized.join(', ') + ')' : ''}.`,
     '',
     'Ripartizione budget:',
     ...roles.map(r => `  ${ROLE_NAME[r]}: ${rolePlan[r]} crediti (${pct(r)}%)`),
     '',
-    `Obiettivi selezionati: ${targets.length} giocatori (vedi lista della spesa, con il "max che pago" precompilato al prezzo previsto).`,
-    'Ritocca a mano budget, obiettivi e tetti: questa è una bozza di partenza.',
+    `Rosa completa: ${targets.length}/${slotsTot} giocatori — ${nStarters} titolari garantiti, ${nScomm} scommesse, ${nFiller} riempitivi da 1.`,
+    'Nella lista della spesa trovi tutti gli slot con il "max che pago" precompilato. Ritocca a mano: è una bozza di partenza.',
   ].join('\n')
 
   return { rolePlan, targets, caps, notes, recognized }
