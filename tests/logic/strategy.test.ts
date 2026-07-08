@@ -78,6 +78,22 @@ describe('generateStrategy', () => {
     // include riempitivi da 1 credito
     expect(Object.values(s.caps).some(c => c === 1)).toBe(true)
   })
+  it('diversifica i club in attacco (non due attaccanti della stessa squadra se ci sono alternative)', () => {
+    const A = (id: number, squadra: string, fvm: number) =>
+      ({ id, nome: 'A' + id, squadra, ruolo: 'A' as const, ruoliMantra: [], qtA: 10, qtI: 10, fvm, stats: st({ gf: 15, fm: 7, pv: 30 }) })
+    // 5 attaccanti Inter (i più forti/costosi) + 6 di club distinti (più deboli/economici)
+    const pool = [
+      A(1, 'Inter', 300), A(2, 'Inter', 290), A(3, 'Inter', 280), A(4, 'Inter', 270), A(5, 'Inter', 260),
+      A(11, 'Milan', 60), A(12, 'Roma', 55), A(13, 'Lazio', 50), A(14, 'Como', 45), A(15, 'Parma', 40), A(16, 'Lecce', 35),
+    ]
+    const tt: Record<number, TierId> = {}
+    for (const p of pool) tt[p.id] = p.squadra === 'Inter' ? 'top' : 'titolare'
+    const tg = computeTags(pool)
+    const pr = predictPrices(pool, tt, DEFAULT_LEAGUE)
+    const s = generateStrategy('', pool, tt, tg, pr, DEFAULT_LEAGUE)
+    const interA = s.targets.filter(id => pool.find(p => p.id === id)?.squadra === 'Inter').length
+    expect(interA).toBeLessThanOrEqual(1) // non fa incetta di attaccanti Inter
+  })
   it('"tante scommesse" aumenta il numero di scommesse in rosa', () => {
     const base = generateStrategy('', players, tiers, tagsMap, prices, DEFAULT_LEAGUE)
     const risk = generateStrategy('voglio tante scommesse', players, tiers, tagsMap, prices, DEFAULT_LEAGUE)
