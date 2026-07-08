@@ -83,7 +83,11 @@ export default function StudioTab() {
                 <td>{p.fvm}</td><td>{p.qtA}</td>
                 <td>{p.stats?.fm ?? '—'}</td><td>{p.stats?.pv ?? '—'}</td>
                 <td>{pr ? `${pr.min}–${pr.max}` : '1'}</td>
-                <td>{isOccasione(p) ? '💎 occasione' : isTrappola(p) ? '🪤 trappola' : ''}</td>
+                <td>{isOccasione(p)
+                  ? <span className="badge b-occ">occasione</span>
+                  : isTrappola(p)
+                    ? <span className="badge b-trap">trappola</span>
+                    : <span className="badge b-neu">neutro</span>}</td>
               </tr>
             )
           })}
