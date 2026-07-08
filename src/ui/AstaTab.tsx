@@ -4,6 +4,7 @@ import { deriveTeams, soldIds } from '@/logic/auction'
 import { profileTeam } from '@/logic/profiles'
 import { adviseTargets, scarcityAlerts } from '@/logic/advisor'
 import { predictPrices } from '@/logic/pricing'
+import { downloadBackup } from './backup'
 import type { Role } from '@/logic/types'
 
 export default function AstaTab() {
@@ -40,8 +41,16 @@ export default function AstaTab() {
   const alerts = scarcityAlerts({ purchases: state.purchases, players: state.players, tiers: state.tiers, tierDefs: state.tierDefs, league: state.league, teams })
   const history = [...state.purchases].sort((a, b) => b.seq - a.seq)
 
+  const myTeam = teams[state.league.myTeamIndex]
+
   return (
     <main>
+      {myTeam && myTeam.totalSlotsLeft === 0 && (
+        <p className="banner">
+          🏁 La tua rosa è completa: esporta il backup JSON — è la tua rete di sicurezza e lo storico prezzi per l'anno prossimo.{' '}
+          <button onClick={() => downloadBackup(state)}>Esporta JSON</button>
+        </p>
+      )}
       <section>
         <h2>Registra acquisto</h2>
         <form onSubmit={e => { e.preventDefault(); register() }}>
@@ -73,6 +82,7 @@ export default function AstaTab() {
           </tbody>
         </table>
         <h3>Profili avversari</h3>
+        <p><small>I profili usano le tue fasce e previsioni correnti: se le cambi nello Studio, si aggiornano retroattivamente anche per gli acquisti già registrati.</small></p>
         {teams.filter(t => t.teamIndex !== state.league.myTeamIndex).map(t => (
           <div key={t.teamIndex}>
             <strong>{`Profilo ${t.name}`}</strong>: {profiles[t.teamIndex].traits.join(' · ') || 'ancora nessun pattern'}

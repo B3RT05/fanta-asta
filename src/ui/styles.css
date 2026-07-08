@@ -13,3 +13,4 @@ th, td { padding: .25rem .5rem; border-bottom: 1px solid #8883; text-align: left
 .card { background: #fff2; border: 1px solid #8884; border-radius: 6px; padding: .25rem .5rem; margin: .25rem 0; cursor: grab; }
 .dashboard tr.me { font-weight: bold; }
 .advice-bassa { color: #2a2; } .advice-media { color: #a80; } .advice-alta { color: #c33; }
+.banner { background: #ffd70022; border: 1px solid #ffd70066; padding: .5rem .75rem; border-radius: 6px; }

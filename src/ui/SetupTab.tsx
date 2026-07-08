@@ -2,7 +2,8 @@ import { useContext, useRef, useState } from 'react'
 import { AppCtx } from './App'
 import { parseListone } from '@/logic/parseListone'
 import { parseStats } from '@/logic/parseStats'
-import { exportJson, importJson } from '@/logic/storage'
+import { importJson } from '@/logic/storage'
+import { downloadBackup } from './backup'
 import { DEFAULT_LEAGUE, type Role } from '@/logic/types'
 
 async function readFile(f: File): Promise<Uint8Array> {
@@ -77,14 +78,7 @@ export default function SetupTab() {
       </section>
       <section>
         <h2>Backup</h2>
-        <button onClick={() => {
-          const blob = new Blob([exportJson(state)], { type: 'application/json' })
-          const a = document.createElement('a')
-          a.href = URL.createObjectURL(blob)
-          a.download = `fanta-asta-${new Date().toISOString().slice(0, 10)}.json`
-          a.click()
-          URL.revokeObjectURL(a.href)
-        }}>Esporta JSON</button>
+        <button onClick={() => downloadBackup(state)}>Esporta JSON</button>
         <input ref={jsonInput} type="file" accept=".json" style={{ display: 'none' }} onChange={async e => {
           const f = e.target.files?.[0]
           if (!f) return

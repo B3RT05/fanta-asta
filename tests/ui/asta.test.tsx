@@ -53,6 +53,21 @@ describe('AstaTab', () => {
     const row = screen.getByText('Squadra 2').closest('tr')!
     expect(within(row).getByText('300')).toBeInTheDocument() // crediti residui
   })
+  it('rosa completa: mostra il promemoria export con bottone', () => {
+    let s = reducer(init, { type: 'setLeague', league: { ...init.league, slots: { P: 0, D: 0, C: 0, A: 1 } } })
+    s = reducer(s, { type: 'addPurchase', playerId: 1, teamIndex: 0, price: 10 })
+    render(<Harness init={s} />)
+    expect(screen.getByText(/rosa è completa/i)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Esporta JSON' })).toBeInTheDocument()
+  })
+  it('rosa incompleta: nessun promemoria export', () => {
+    render(<Harness init={init} />)
+    expect(screen.queryByText(/rosa è completa/i)).not.toBeInTheDocument()
+  })
+  it('mostra la nota sui profili aggiornati retroattivamente', () => {
+    render(<Harness init={init} />)
+    expect(screen.getByText(/si aggiornano retroattivamente/i)).toBeInTheDocument()
+  })
   it('un acquisto con prezzo 0 non viene registrato', async () => {
     render(<Harness init={init} />)
     await userEvent.type(screen.getByLabelText('Giocatore'), 'Lautaro (Inter, A)')

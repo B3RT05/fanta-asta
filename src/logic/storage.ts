@@ -18,11 +18,15 @@ export function initialState(): AppState {
   }
 }
 
+const isPlainObject = (v: unknown): v is Record<string, unknown> =>
+  typeof v === 'object' && v !== null && !Array.isArray(v)
+
 function isValid(s: unknown): s is AppState {
-  if (typeof s !== 'object' || s === null) return false
-  const o = s as Record<string, unknown>
+  if (!isPlainObject(s)) return false
+  const o = s
   return o.version === SCHEMA_VERSION && Array.isArray(o.players) && Array.isArray(o.purchases)
-    && Array.isArray(o.tierDefs) && typeof o.league === 'object' && o.league !== null
+    && Array.isArray(o.tierDefs) && Array.isArray(o.review) && Array.isArray(o.targets)
+    && isPlainObject(o.league) && isPlainObject(o.tiers) && isPlainObject(o.rolePlan) && isPlainObject(o.teamNotes)
 }
 
 export function saveState(s: AppState, store: Pick<Storage, 'setItem'> = localStorage): void {

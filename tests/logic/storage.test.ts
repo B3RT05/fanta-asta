@@ -27,4 +27,14 @@ describe('storage', () => {
   it('import invalido -> throw', () => {
     expect(() => importJson('{"pippo":1}')).toThrow()
   })
+  it('backup senza un campo obbligatorio (targets) -> throw', () => {
+    const s = initialState() as unknown as Record<string, unknown>
+    delete s.targets
+    expect(() => importJson(JSON.stringify(s))).toThrow()
+  })
+  it('backup con tiers non-oggetto -> throw', () => {
+    const s = initialState() as unknown as Record<string, unknown>
+    s.tiers = 'rotto'
+    expect(() => importJson(JSON.stringify(s))).toThrow()
+  })
 })
