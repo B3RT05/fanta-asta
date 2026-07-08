@@ -4,6 +4,9 @@ import type { Player, Role, TierId } from './types'
 export const PV_TITOLARE = 15   // presenze minime per essere valutato sul rendimento
 export const PV_SOLIDO = 25     // presenze da titolare pieno (richieste per la fascia "titolare")
 export const DIFF_ASCESA = 8    // Qt.A - Qt.I: giocatore "in ascesa" per i quotisti
+// un non-valutabile è "scommessa" solo se ha vero potenziale: FVM nel quartile
+// alto del ruolo, oppure in ascesa con FVM sopra la media. Altrimenti riempitivo.
+export const SCOMMESSA_FVM_PCT = 0.80
 export const REVIEW_BAND = 0.03
 export const SCORE_PCT_TOP = 0.90
 export const SCORE_PCT_SEMITOP = 0.70
@@ -65,8 +68,11 @@ function tiersByRendimento(players: Player[]): { tiers: Record<number, TierId>; 
 
   for (const role of roles) {
     const pool = players.filter(p => p.ruolo === role)
+
+    // percentile FVM nel ruolo: distingue le vere scommesse (mercato alto) dai riempitivi
     const sortedFvm = [...pool].sort((a, b) => a.fvm - b.fvm)
-    const median = sortedFvm[Math.floor(sortedFvm.length / 2)]?.fvm ?? 0
+    const fvmPctOf = new Map<number, number>()
+    sortedFvm.forEach((p, i) => fvmPctOf.set(p.id, sortedFvm.length > 1 ? i / (sortedFvm.length - 1) : 1))
 
     // valutabili sul rendimento: hanno statistiche e presenze sufficienti
     const evaluable = pool.filter(p => p.stats && p.stats.pv >= PV_TITOLARE)
@@ -95,8 +101,11 @@ function tiersByRendimento(players: Player[]): { tiers: Record<number, TierId>; 
       const pct = pctOf.get(p.id)
       let tier: TierId
       if (pct === undefined) {
-        // pochi/zero dati: scommessa se ha mercato/è in ascesa, altrimenti riempitivo
-        tier = (p.fvm >= median || p.qtA - p.qtI >= DIFF_ASCESA) ? 'scommessa' : 'riempitivo'
+        // pochi/zero dati: scommessa solo se ha vero potenziale (FVM alto nel
+        // ruolo, o in ascesa con FVM sopra la media), altrimenti riempitivo
+        const fp = fvmPctOf.get(p.id)!
+        const inAscesa = p.qtA - p.qtI >= DIFF_ASCESA
+        tier = (fp >= SCOMMESSA_FVM_PCT || (inAscesa && fp >= 0.5)) ? 'scommessa' : 'riempitivo'
       } else if (pct >= SCORE_PCT_TOP) {
         tier = 'top'
       } else if (pct >= SCORE_PCT_SEMITOP) {

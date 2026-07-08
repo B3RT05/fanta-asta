@@ -36,6 +36,15 @@ describe('proposeTiers (listone reale)', () => {
     expect(review.length).toBeGreaterThan(0)
     expect(review.every(id => tiers[id] !== undefined)).toBe(true)
   })
+  it('le scommesse sono una minoranza in ogni ruolo (le riserve sono riempitivi)', () => {
+    for (const r of ['P', 'D', 'C', 'A'] as const) {
+      const pool = players.filter(p => p.ruolo === r)
+      const scommesse = pool.filter(p => tiers[p.id] === 'scommessa').length
+      const riempitivi = pool.filter(p => tiers[p.id] === 'riempitivo').length
+      expect(scommesse).toBeLessThan(pool.length * 0.25) // < 25% del ruolo
+      expect(scommesse).toBeLessThanOrEqual(riempitivi)  // mai più dei riempitivi
+    }
+  })
 })
 
 // ---- clusterizzazione per-ruolo (casi sintetici deterministici) ----
