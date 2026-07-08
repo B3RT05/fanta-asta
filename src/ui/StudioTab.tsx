@@ -1,6 +1,5 @@
 import { useContext, useMemo, useState } from 'react'
 import { AppCtx } from './App'
-import TierBoard from './TierBoard'
 import PlayerModal from './PlayerModal'
 import { predictPrices } from '@/logic/pricing'
 import { computeTags } from '@/logic/tags'
@@ -83,8 +82,6 @@ export default function StudioTab() {
           {tagOptions.map(([id, label]) => <option key={id} value={id}>{label}</option>)}
         </select></label>
       </section>
-
-      {role !== 'tutti' && <TierBoard players={state.players.filter(p => p.ruolo === role)} />}
 
       <table>
         <thead><tr><th></th><th>Nome</th><th>Squadra</th><th>R</th><th>Fascia</th><th>FVM</th><th>Qt.A</th><th>Fm</th><th>Pv</th><th>Prev.</th><th></th><th>Tag</th></tr></thead>
