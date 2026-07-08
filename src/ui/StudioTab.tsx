@@ -48,6 +48,10 @@ export default function StudioTab() {
             onChange={e => dispatch({ type: 'renameTier', id: d.id, label: e.target.value })} /></label>
         ))}
         <button onClick={() => dispatch({ type: 'addTier', label: `Fascia ${state.tierDefs.length + 1}` })}>+ fascia</button>
+        <button className="btn-primary" onClick={() => {
+          if (window.confirm('Ricalcolo le fasce dai dati correnti (rendimento se hai caricato le statistiche, altrimenti FVM)? Le modifiche manuali alle fasce verranno sovrascritte.'))
+            dispatch({ type: 'recomputeTiers' })
+        }}>Ricalcola fasce dai dati</button>
       </details>
 
       <section>

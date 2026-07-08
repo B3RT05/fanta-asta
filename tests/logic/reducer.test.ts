@@ -1,9 +1,11 @@
 import { describe, it, expect } from 'vitest'
 import { reducer } from '@/state/reducer'
 import { initialState } from '@/logic/storage'
-import type { Player } from '@/logic/types'
+import type { Player, PlayerStats } from '@/logic/types'
 
 const mk = (id: number): Player => ({ id, nome: `G${id}`, squadra: 'Inter', ruolo: 'A', ruoliMantra: [], qtA: 10, qtI: 10, fvm: 100 })
+const stat = (pv: number): PlayerStats =>
+  ({ pv, mv: 6, fm: 6, gf: 0, gs: 0, rp: 0, rc: 0, rPlus: 0, rMinus: 0, ass: 0, amm: 0, esp: 0, au: 0 })
 
 describe('reducer', () => {
   it('importListone conserva fasce esistenti per Id e mette i nuovi in review', () => {
@@ -44,6 +46,22 @@ describe('reducer', () => {
     s = reducer(s, { type: 'setTier', playerId: 2, tier: 'top' })
     s = reducer(s, { type: 'importListone', players: [mk(1)] })
     expect(s.tiers[2]).toBe('top')
+  })
+  it('recomputeTiers rigenera le fasce dai dati, sovrascrivendo le modifiche manuali', () => {
+    let s = initialState()
+    s = reducer(s, { type: 'importListone', players: [mk(1)] })
+    s = reducer(s, { type: 'setTier', playerId: 1, tier: 'skip' })
+    expect(s.tiers[1]).toBe('skip')
+    s = reducer(s, { type: 'recomputeTiers' })
+    expect(s.tiers[1]).not.toBe('skip') // ricalcolata dall'algoritmo
+  })
+  it('importStats ricalcola le fasce (caricare le statistiche aggiorna le fasce)', () => {
+    let s = initialState()
+    s = reducer(s, { type: 'importListone', players: [mk(1)] })
+    s = reducer(s, { type: 'setTier', playerId: 1, tier: 'skip' })
+    s = reducer(s, { type: 'importStats', stats: new Map([[1, stat(30)]]) })
+    expect(s.players[0].stats).toBeDefined()
+    expect(s.tiers[1]).not.toBe('skip') // fasce rigenerate col rendimento
   })
   it('renameTier cambia la label; addTier inserisce prima di skip', () => {
     let s = initialState()

@@ -15,6 +15,7 @@ export type Action =
   | { type: 'editPurchase'; seq: number; price: number; teamIndex: number }
   | { type: 'removePurchase'; seq: number }
   | { type: 'setTeamNote'; teamIndex: number; note: string }
+  | { type: 'recomputeTiers' }
   | { type: 'replaceState'; state: AppState }
 
 export function reducer(state: AppState, action: Action): AppState {
@@ -49,8 +50,16 @@ export function reducer(state: AppState, action: Action): AppState {
         targets: state.targets.filter(id => ids.has(id)),
       }
     }
-    case 'importStats':
-      return { ...state, players: mergeStats(state.players, action.stats) }
+    case 'importStats': {
+      // le statistiche cambiano la clusterizzazione per rendimento -> ricalcola le fasce
+      const players = mergeStats(state.players, action.stats)
+      const { tiers, review } = proposeTiers(players)
+      return { ...state, players, tiers, review }
+    }
+    case 'recomputeTiers': {
+      const { tiers, review } = proposeTiers(state.players)
+      return { ...state, tiers, review }
+    }
     case 'setLeague':
       return { ...state, league: action.league }
     case 'setTier':
