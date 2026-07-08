@@ -36,7 +36,8 @@ export const ROLE_WEIGHTS: Record<Role, Partial<Record<MetricKey, number>>> = {
   A: { gol: 0.40, fm: 0.40, pv: 0.20 },
   C: { fm: 0.60, pv: 0.40 },
   D: { fm: 0.30, mv: 0.28, pv: 0.17, bonus: 0.25 },
-  P: { fm: 0.32, mv: 0.30, cleansheet: 0.23, pv: 0.15 },
+  // portieri: presenze e gol subiti (clean sheet) prima di media voto e fantamedia
+  P: { cleansheet: 0.32, pv: 0.30, mv: 0.20, fm: 0.18 },
 }
 
 function metric(p: Player, key: MetricKey): number {

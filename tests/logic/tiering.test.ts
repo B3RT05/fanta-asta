@@ -91,4 +91,15 @@ describe('proposeTiers — fasce per ruolo', () => {
     expect(tiers[500]).toBe('top')
     expect(tiers[501]).not.toBe('top')
   })
+
+  it('Portieri: presenze e gol subiti pesano PIÙ di media e fantamedia', () => {
+    // pochi gol subiti + tante presenze, ma voti bassi -> deve battere...
+    const guardian = P(600, 'P', st({ pv: 38, mv: 5.5, fm: 5.5, gs: 15 }))
+    // ...i bei voti di chi però subisce tanto e gioca meno
+    const fancy = P(601, 'P', st({ pv: 20, mv: 7, fm: 7, gs: 40 }))
+    const pool = [...clones('P', 10, { pv: 25, mv: 6, fm: 6, gs: 25 }, 610), guardian, fancy]
+    const { tiers } = proposeTiers(pool)
+    expect(tiers[600]).toBe('top')
+    expect(tiers[601]).not.toBe('top')
+  })
 })
