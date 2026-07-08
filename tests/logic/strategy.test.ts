@@ -45,6 +45,19 @@ describe('generateStrategy', () => {
     const tot = s.rolePlan.P + s.rolePlan.D + s.rolePlan.C + s.rolePlan.A
     expect(tot).toBe(DEFAULT_LEAGUE.budget)
   })
+  it('riconosce "difensori" e "centrocampisti" (parole comuni, non solo le esatte)', () => {
+    const s = generateStrategy('voglio difensori forti e centrocampisti da bonus', players, tiers, tagsMap, prices, DEFAULT_LEAGUE)
+    expect(s.recognized).toContain('difesa')
+    expect(s.recognized).toContain('centrocampo')
+  })
+  it('riconosce un portiere forte/titolare', () => {
+    const s = generateStrategy('un buon portiere titolare e sicuro', players, tiers, tagsMap, prices, DEFAULT_LEAGUE)
+    expect(s.recognized).toContain('portiere forte')
+  })
+  it('riconosce "punte" e "bomber" come attacco', () => {
+    const s = generateStrategy('due punte da tanti gol', players, tiers, tagsMap, prices, DEFAULT_LEAGUE)
+    expect(s.recognized).toContain('attacco')
+  })
   it('produce sempre obiettivi e note', () => {
     const s = generateStrategy('', players, tiers, tagsMap, prices, DEFAULT_LEAGUE)
     expect(s.targets.length).toBeGreaterThan(0)

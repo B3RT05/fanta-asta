@@ -38,12 +38,17 @@ export function generateStrategy(
     w[to] += amt
   }
 
-  if (has('attacc', 'bomber', 'offensiv', 'gol')) { shift(['D', 'C'], 'A', 0.10); recognized.push('attacco') }
-  if (has('difes', 'modificator', 'difensiv')) { shift(['A'], 'D', 0.10); recognized.push('difesa') }
-  if (has('centrocampo', 'mediana', 'regist')) { shift(['A'], 'C', 0.08); recognized.push('centrocampo') }
-  if (has('portiere low cost', 'porta low cost', 'portiere economico', 'porta economic')) { shift([], 'A', 0); w.A += w.P - 0.05; w.P = 0.05; recognized.push('portiere low cost') }
-  if (has('portiere forte', 'portiere top', 'grande portiere')) { shift(['C'], 'P', 0.05); recognized.push('portiere forte') }
-  const wantScommesse = has('scommess', 'giovan', 'rischi')
+  // radici ampie + sinonimi (attaccanti, difensori, centrocampisti, ...)
+  if (has('attacc', 'bomber', 'punt', 'goleador', 'offensiv', 'gol', 'segna')) { shift(['D', 'C'], 'A', 0.10); recognized.push('attacco') }
+  if (has('dife', 'terzin', 'central', 'difensiv', 'modificator', 'arretrat')) { shift(['A'], 'D', 0.10); recognized.push('difesa') }
+  if (has('centrocamp', 'mediana', 'mezzala', 'regist', 'trequart', 'mediano', 'in mezzo')) { shift(['A'], 'C', 0.08); recognized.push('centrocampo') }
+  const port = has('portier', 'estremo difensore') || / porta /.test(' ' + q + ' ')
+  if (port && has('low cost', 'economic', 'risparmi', 'spendo poco', '1 credito', 'un credito', 'poco')) {
+    w.A += Math.max(0, w.P - 0.05); w.P = 0.05; recognized.push('portiere low cost')
+  } else if (port && has('forte', 'top', 'titolare', 'sicur', 'affidabil', 'big', 'buon')) {
+    shift(['C'], 'P', 0.05); recognized.push('portiere forte')
+  }
+  const wantScommesse = has('scommess', 'giovan', 'rischi', 'sorpres')
   if (wantScommesse) recognized.push('scommesse')
   if (has('equilibrat', 'bilanciat')) recognized.push('equilibrato')
 
