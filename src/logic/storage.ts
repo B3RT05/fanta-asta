@@ -15,6 +15,8 @@ export function initialState(): AppState {
     rolePlan: { P: 0, D: 0, C: 0, A: 0 },
     purchases: [],
     teamNotes: {},
+    strategyNotes: '',
+    targetCaps: {},
   }
 }
 

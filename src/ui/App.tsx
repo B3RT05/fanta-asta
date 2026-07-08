@@ -4,12 +4,13 @@ import { initialState, loadState, saveState } from '@/logic/storage'
 import type { AppState } from '@/logic/types'
 import SetupTab from './SetupTab'
 import StudioTab from './StudioTab'
+import StrategiaTab from './StrategiaTab'
 import AstaTab from './AstaTab'
 import './styles.css'
 
 export const AppCtx = createContext<{ state: AppState; dispatch: Dispatch<Action> }>(null!)
 
-type Tab = 'setup' | 'studio' | 'asta'
+type Tab = 'setup' | 'studio' | 'strategia' | 'asta'
 
 export default function App() {
   const [state, dispatch] = useReducer(reducer, undefined, () => loadState() ?? initialState())
@@ -23,15 +24,16 @@ export default function App() {
       <header className="topbar">
         <h1>Fanta Asta</h1>
         <nav>
-          {(['setup', 'studio', 'asta'] as Tab[]).map(t => (
+          {(['setup', 'studio', 'strategia', 'asta'] as Tab[]).map(t => (
             <button key={t} className={tab === t ? 'active' : ''} onClick={() => setTab(t)}>
-              {t === 'setup' ? 'Setup' : t === 'studio' ? 'Studio' : 'Asta'}
+              {t === 'setup' ? 'Setup' : t === 'studio' ? 'Studio' : t === 'strategia' ? 'Strategia' : 'Asta'}
             </button>
           ))}
         </nav>
       </header>
       {tab === 'setup' && <SetupTab />}
       {tab === 'studio' && <StudioTab />}
+      {tab === 'strategia' && <StrategiaTab />}
       {tab === 'asta' && <AstaTab />}
     </AppCtx.Provider>
   )

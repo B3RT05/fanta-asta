@@ -322,6 +322,19 @@ details[open] summary { color: var(--text); }
 
 .hint { color: var(--muted); font-size: .84rem; margin: .3rem 0 0; }
 
+/* Strategia: barra ripartizione budget */
+.plan-bar {
+  display: flex; height: 2rem; border-radius: var(--radius-sm);
+  overflow: hidden; background: var(--surface-2);
+  border: 1px solid var(--border); margin-bottom: .8rem;
+}
+.plan-bar span {
+  display: flex; align-items: center; justify-content: center;
+  color: #06170d; font-size: .74rem; font-weight: 800; white-space: nowrap;
+  min-width: 0; transition: width .2s;
+}
+.plan-inputs { display: flex; flex-wrap: wrap; gap: .3rem 1rem; }
+
 /* nome giocatore cliccabile (apre la scheda) */
 button.link {
   appearance: none; border: 0; background: transparent; margin: 0; padding: 0;

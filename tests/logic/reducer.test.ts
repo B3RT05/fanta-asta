@@ -63,6 +63,13 @@ describe('reducer', () => {
     expect(s.players[0].stats).toBeDefined()
     expect(s.tiers[1]).not.toBe('skip') // fasce rigenerate col rendimento
   })
+  it('setStrategyNotes e setTargetCap salvano nello stato', () => {
+    let s = initialState()
+    s = reducer(s, { type: 'setStrategyNotes', notes: 'Piano A: difesa modificatore' })
+    expect(s.strategyNotes).toBe('Piano A: difesa modificatore')
+    s = reducer(s, { type: 'setTargetCap', playerId: 5, cap: 42 })
+    expect(s.targetCaps[5]).toBe(42)
+  })
   it('renameTier cambia la label; addTier inserisce prima di skip', () => {
     let s = initialState()
     s = reducer(s, { type: 'renameTier', id: 'top', label: 'Fuoriclasse' })

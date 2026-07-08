@@ -64,6 +64,8 @@ export interface AppState {
   rolePlan: Record<Role, number> // budget pianificato per ruolo (pre-asta)
   purchases: Purchase[]
   teamNotes: Record<number, string> // note pre-asta per teamIndex
+  strategyNotes: string            // piano d'asta a testo libero
+  targetCaps: Record<number, number> // tetto di spesa personale per obiettivo (playerId)
 }
 
 export const DEFAULT_LEAGUE: LeagueConfig = {

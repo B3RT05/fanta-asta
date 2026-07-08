@@ -15,6 +15,8 @@ export type Action =
   | { type: 'editPurchase'; seq: number; price: number; teamIndex: number }
   | { type: 'removePurchase'; seq: number }
   | { type: 'setTeamNote'; teamIndex: number; note: string }
+  | { type: 'setStrategyNotes'; notes: string }
+  | { type: 'setTargetCap'; playerId: number; cap: number }
   | { type: 'recomputeTiers' }
   | { type: 'replaceState'; state: AppState }
 
@@ -56,6 +58,10 @@ export function reducer(state: AppState, action: Action): AppState {
       const { tiers, review } = proposeTiers(players)
       return { ...state, players, tiers, review }
     }
+    case 'setStrategyNotes':
+      return { ...state, strategyNotes: action.notes }
+    case 'setTargetCap':
+      return { ...state, targetCaps: { ...(state.targetCaps ?? {}), [action.playerId]: action.cap } }
     case 'recomputeTiers': {
       const { tiers, review } = proposeTiers(state.players)
       return { ...state, tiers, review }
