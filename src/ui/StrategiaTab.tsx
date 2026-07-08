@@ -1,6 +1,8 @@
-import { useContext, useMemo } from 'react'
+import { useContext, useMemo, useState } from 'react'
 import { AppCtx } from './App'
 import { predictPrices } from '@/logic/pricing'
+import { computeTags } from '@/logic/tags'
+import { generateStrategy } from '@/logic/strategy'
 import { tierLabel, type Role } from '@/logic/types'
 
 const ROLE_NAME: Record<Role, string> = { P: 'Portieri', D: 'Difensori', C: 'Centrocampo', A: 'Attacco' }
@@ -9,7 +11,16 @@ const ROLE_COLOR: Record<Role, string> = { P: 'var(--gold)', D: 'var(--teal)', C
 export default function StrategiaTab() {
   const { state, dispatch } = useContext(AppCtx)
   const prices = useMemo(() => predictPrices(state.players, state.tiers, state.league), [state.players, state.tiers, state.league])
+  const tagsMap = useMemo(() => computeTags(state.players), [state.players])
   const byId = useMemo(() => new Map(state.players.map(p => [p.id, p])), [state.players])
+  const [desc, setDesc] = useState('')
+
+  const genera = () => {
+    const s = generateStrategy(desc, state.players, state.tiers, tagsMap, prices, state.league)
+    const kw = s.recognized.length ? `Riconosciuto: ${s.recognized.join(', ')}.` : 'Nessuna parola chiave riconosciuta: genero una bozza equilibrata.'
+    if (window.confirm(`${kw}\n\nGenero la strategia e sovrascrivo budget, obiettivi e note attuali?`))
+      dispatch({ type: 'applyStrategy', rolePlan: s.rolePlan, targets: s.targets, caps: s.caps, notes: s.notes })
+  }
 
   const roles: Role[] = ['P', 'D', 'C', 'A']
   const plan = state.rolePlan
@@ -25,6 +36,15 @@ export default function StrategiaTab() {
 
   return (
     <main>
+      <section>
+        <h2>Genera strategia da una descrizione</h2>
+        <p className="hint">Descrivi come vuoi giocare l'asta: l'app riconosce concetti come <em>attacco, difesa, modificatore, centrocampo, portiere low cost/forte, scommesse, equilibrato</em> e prepara budget e lista obiettivi. È una bozza offline, poi la rifinisci a mano.</p>
+        <input aria-label="Descrizione strategia" style={{ width: '100%', maxWidth: '40rem' }}
+          placeholder="es. difesa da modificatore e un top in attacco, portiere low cost, qualche scommessa"
+          value={desc} onChange={e => setDesc(e.target.value)} />
+        <div><button className="btn-primary" disabled={state.players.length === 0} onClick={genera}>Genera strategia</button></div>
+      </section>
+
       <section>
         <h2>Il tuo piano d'asta</h2>
         <textarea aria-label="Piano d'asta" style={{ minHeight: '9rem' }}

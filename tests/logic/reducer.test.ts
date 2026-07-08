@@ -70,6 +70,14 @@ describe('reducer', () => {
     s = reducer(s, { type: 'setTargetCap', playerId: 5, cap: 42 })
     expect(s.targetCaps[5]).toBe(42)
   })
+  it('applyStrategy sovrascrive piano, obiettivi, tetti e note', () => {
+    let s = initialState()
+    s = reducer(s, { type: 'applyStrategy', rolePlan: { P: 10, D: 90, C: 170, A: 230 }, targets: [7, 8], caps: { 7: 100, 8: 30 }, notes: 'bozza' })
+    expect(s.rolePlan.A).toBe(230)
+    expect(s.targets).toEqual([7, 8])
+    expect(s.targetCaps[7]).toBe(100)
+    expect(s.strategyNotes).toBe('bozza')
+  })
   it('renameTier cambia la label; addTier inserisce prima di skip', () => {
     let s = initialState()
     s = reducer(s, { type: 'renameTier', id: 'top', label: 'Fuoriclasse' })

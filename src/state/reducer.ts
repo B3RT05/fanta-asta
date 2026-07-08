@@ -17,6 +17,7 @@ export type Action =
   | { type: 'setTeamNote'; teamIndex: number; note: string }
   | { type: 'setStrategyNotes'; notes: string }
   | { type: 'setTargetCap'; playerId: number; cap: number }
+  | { type: 'applyStrategy'; rolePlan: Record<Role, number>; targets: number[]; caps: Record<number, number>; notes: string }
   | { type: 'recomputeTiers' }
   | { type: 'replaceState'; state: AppState }
 
@@ -62,6 +63,8 @@ export function reducer(state: AppState, action: Action): AppState {
       return { ...state, strategyNotes: action.notes }
     case 'setTargetCap':
       return { ...state, targetCaps: { ...(state.targetCaps ?? {}), [action.playerId]: action.cap } }
+    case 'applyStrategy':
+      return { ...state, rolePlan: action.rolePlan, targets: action.targets, targetCaps: action.caps, strategyNotes: action.notes }
     case 'recomputeTiers': {
       const { tiers, review } = proposeTiers(state.players)
       return { ...state, tiers, review }
