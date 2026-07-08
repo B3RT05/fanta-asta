@@ -315,6 +315,46 @@ details[open] summary { color: var(--text); }
 
 .hint { color: var(--muted); font-size: .84rem; margin: .3rem 0 0; }
 
+/* nome giocatore cliccabile (apre la scheda) */
+button.link {
+  appearance: none; border: 0; background: transparent; margin: 0; padding: 0;
+  color: var(--text); font: inherit; font-weight: 600; cursor: pointer;
+  text-decoration: underline; text-decoration-color: var(--border-strong);
+  text-underline-offset: 2px;
+}
+button.link:hover { color: var(--primary); text-decoration-color: var(--primary); background: transparent; }
+
+/* ---------------- Scheda giocatore (modale) ---------------- */
+.modal-overlay {
+  position: fixed; inset: 0; z-index: 50;
+  background: rgba(0, 0, 0, .55); backdrop-filter: blur(2px);
+  display: flex; align-items: flex-start; justify-content: center;
+  padding: 4vh 1rem; overflow-y: auto;
+}
+.modal {
+  background: var(--surface); border: 1px solid var(--border-strong);
+  border-radius: var(--radius); box-shadow: var(--shadow);
+  width: 100%; max-width: 30rem; padding: 1.1rem 1.3rem 1.4rem;
+}
+.modal-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; }
+.modal-head h2 { margin: 0; font-size: 1.2rem; }
+.modal-head h2::before { content: none; }
+.modal-head .star { color: var(--gold); }
+.modal-head > button {
+  border: 0; background: var(--surface-2); color: var(--muted);
+  border-radius: 8px; padding: .3rem .6rem; font-size: 1rem; line-height: 1;
+}
+.modal-head > button:hover { color: var(--text); background: var(--surface-3); }
+.modal-block { margin-top: 1rem; }
+.modal-block h3 { margin: 0 0 .5rem; }
+.kvgrid { display: grid; grid-template-columns: 1fr 1fr; gap: .1rem .8rem; margin: 0; }
+.kv { display: flex; justify-content: space-between; gap: .6rem;
+  padding: .3rem 0; border-bottom: 1px solid var(--border); font-size: .9rem; }
+.kv dt { color: var(--muted); margin: 0; }
+.kv dd { margin: 0; font-weight: 600; font-variant-numeric: tabular-nums; }
+.up { color: var(--primary); } .down { color: var(--danger); }
+@media (max-width: 520px) { .kvgrid { grid-template-columns: 1fr; } }
+
 /* ---------------- Responsive ---------------- */
 @media (max-width: 780px) {
   main.setup { grid-template-columns: 1fr; }

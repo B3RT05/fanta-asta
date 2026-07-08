@@ -1,6 +1,7 @@
 import { useContext, useMemo, useState } from 'react'
 import { AppCtx } from './App'
 import TierBoard from './TierBoard'
+import PlayerModal from './PlayerModal'
 import { predictPrices } from '@/logic/pricing'
 import { FM_TITOLARE, PV_SOLIDO, PV_TITOLARE } from '@/logic/tiering'
 import type { Role, TierId } from '@/logic/types'
@@ -11,6 +12,7 @@ export default function StudioTab() {
   const [tierFilter, setTierFilter] = useState<TierId | 'tutte'>('tutte')
   const [q, setQ] = useState('')
   const [onlyReview, setOnlyReview] = useState(false)
+  const [detailId, setDetailId] = useState<number | null>(null)
 
   const prices = useMemo(() => predictPrices(state.players, state.tiers, state.league), [state.players, state.tiers, state.league])
   if (state.players.length === 0) return <main>Studio: carica prima il listone nel Setup.</main>
@@ -77,7 +79,7 @@ export default function StudioTab() {
               <tr key={p.id}>
                 <td><button aria-label={`target ${p.nome}`} onClick={() => dispatch({ type: 'toggleTarget', playerId: p.id })}>
                   {state.targets.includes(p.id) ? '★' : '☆'}</button></td>
-                <td>{p.nome}{review.has(p.id) ? <span aria-hidden="true"> ⚠</span> : null}</td>
+                <td><button className="link" onClick={() => setDetailId(p.id)}>{p.nome}</button>{review.has(p.id) ? <span aria-hidden="true"> ⚠</span> : null}</td>
                 <td>{p.squadra}</td>
                 <td>{p.ruolo}</td>
                 <td><select aria-label="Fascia" value={state.tiers[p.id]}
@@ -97,6 +99,13 @@ export default function StudioTab() {
           })}
         </tbody>
       </table>
+
+      {detailId !== null && (() => {
+        const p = state.players.find(pl => pl.id === detailId)
+        if (!p) return null
+        return <PlayerModal player={p} tierDefs={state.tierDefs} tier={state.tiers[p.id]}
+          price={prices.get(p.id)} isTarget={state.targets.includes(p.id)} onClose={() => setDetailId(null)} />
+      })()}
     </main>
   )
 }

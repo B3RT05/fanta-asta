@@ -43,6 +43,21 @@ describe('StudioTab', () => {
     await userEvent.click(within(row).getByRole('button', { name: /target/i }))
     expect(within(row).getByRole('button', { name: /target/i })).toHaveTextContent('★')
   })
+  it('clic sul nome apre la scheda con tutti i dati del giocatore', async () => {
+    render(<Harness init={init} />)
+    await userEvent.click(screen.getByRole('button', { name: 'Lautaro' }))
+    const dialog = screen.getByRole('dialog')
+    expect(within(dialog).getByText('Fantamedia')).toBeInTheDocument()
+    expect(within(dialog).getByText('Rigori parati')).toBeInTheDocument()
+    expect(within(dialog).getByText('Assist')).toBeInTheDocument()
+    expect(within(dialog).getByText('FVM')).toBeInTheDocument()
+  })
+  it('la scheda si chiude', async () => {
+    render(<Harness init={init} />)
+    await userEvent.click(screen.getByRole('button', { name: 'Lautaro' }))
+    await userEvent.click(screen.getByRole('button', { name: /chiudi/i }))
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  })
   it('rinomina fascia: le select di riga mostrano la nuova label', async () => {
     render(<Harness init={init} />)
     const input = screen.getByLabelText('Nome fascia top')
