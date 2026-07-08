@@ -4,6 +4,7 @@ import TierBoard from './TierBoard'
 import PlayerModal from './PlayerModal'
 import { predictPrices } from '@/logic/pricing'
 import { computeTags } from '@/logic/tags'
+import { matchesQuery } from '@/logic/search'
 import { FM_TITOLARE, PV_SOLIDO, PV_TITOLARE } from '@/logic/tiering'
 import type { Role, TierId } from '@/logic/types'
 
@@ -33,7 +34,7 @@ export default function StudioTab() {
     (tierFilter === 'tutte' || state.tiers[p.id] === tierFilter) &&
     (!onlyReview || review.has(p.id)) &&
     (tagFilter === 'tutte' || (tagsMap.get(p.id) ?? []).some(t => t.id === tagFilter)) &&
-    p.nome.toLowerCase().includes(q.toLowerCase()),
+    matchesQuery([p.nome, p.squadra], q),
   ).sort((a, b) => b.fvm - a.fvm)
 
   const isOccasione = (p: typeof shown[0]) => !!p.stats && p.stats.fm >= FM_TITOLARE[p.ruolo] && p.stats.pv >= PV_SOLIDO
@@ -75,7 +76,7 @@ export default function StudioTab() {
           <option value="tutte">tutte</option>
           {state.tierDefs.map(d => <option key={d.id} value={d.id}>{d.label}</option>)}
         </select></label>
-        <label> Cerca <input value={q} onChange={e => setQ(e.target.value)} /></label>
+        <label> Cerca <input aria-label="Cerca" placeholder="cognome o squadra…" value={q} onChange={e => setQ(e.target.value)} /></label>
         <label> <input type="checkbox" checked={onlyReview} onChange={e => setOnlyReview(e.target.checked)} /> solo da rivedere ({state.review.length})</label>
         <label> Sottocategoria <select aria-label="Sottocategoria" value={tagFilter} onChange={e => setTagFilter(e.target.value)}>
           <option value="tutte">tutte</option>

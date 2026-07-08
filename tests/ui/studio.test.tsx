@@ -43,6 +43,12 @@ describe('StudioTab', () => {
     await userEvent.click(within(row).getByRole('button', { name: /target/i }))
     expect(within(row).getByRole('button', { name: /target/i })).toHaveTextContent('★')
   })
+  it('la ricerca filtra i giocatori (per cognome)', async () => {
+    render(<Harness init={init} />)
+    await userEvent.type(screen.getByLabelText('Cerca'), 'rrah')
+    expect(screen.getByText('Rrahmani')).toBeInTheDocument()
+    expect(screen.queryByText('Lautaro')).not.toBeInTheDocument()
+  })
   it('clic sul nome apre la scheda con tutti i dati del giocatore', async () => {
     render(<Harness init={init} />)
     await userEvent.click(screen.getByRole('button', { name: 'Lautaro' }))
