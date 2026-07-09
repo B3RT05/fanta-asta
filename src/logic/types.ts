@@ -73,5 +73,5 @@ export const DEFAULT_LEAGUE: LeagueConfig = {
   teams: ['Io', 'Squadra 2', 'Squadra 3', 'Squadra 4', 'Squadra 5', 'Squadra 6', 'Squadra 7', 'Squadra 8'],
   myTeamIndex: 0,
   slots: { P: 3, D: 8, C: 8, A: 6 },
-  bigClubs: ['Inter', 'Napoli', 'Milan', 'Juventus', 'Atalanta', 'Roma', 'Lazio', 'Fiorentina', 'Bologna'],
+  bigClubs: ['Inter', 'Roma', 'Como', 'Napoli', 'Milan', 'Juventus'],
 }

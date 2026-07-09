@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { generateStrategy, bigClubs } from '@/logic/strategy'
+import { generateStrategy } from '@/logic/strategy'
 import { computeTags } from '@/logic/tags'
 import { predictPrices } from '@/logic/pricing'
 import { DEFAULT_LEAGUE, type Player, type PlayerStats, type TierId } from '@/logic/types'
@@ -94,17 +94,20 @@ describe('generateStrategy', () => {
     const interA = s.targets.filter(id => pool.find(p => p.id === id)?.squadra === 'Inter').length
     expect(interA).toBeLessThanOrEqual(1) // non fa incetta di attaccanti Inter
   })
-  it('bigClubs: riconosce le squadre con più giocatori di fascia alta', () => {
-    const pl = [
-      P(1, 'A', 300), P(2, 'C', 250), P(3, 'D', 200),   // 3 Inter forti
-      P(11, 'A', 40), P(12, 'C', 30),                    // 2 Lecce deboli
+  it('difesa: promuove a titolare anche i difensori DA BONUS, non solo i migliori voti', () => {
+    const D = (id: number, mv: number, gf: number, ass: number, fvm: number, squadra: string) =>
+      ({ id, nome: 'D' + id, squadra, ruolo: 'D' as const, ruoliMantra: [], qtA: 10, qtI: 10, fvm, stats: st({ mv, gf, ass, pv: 34, fm: mv + (gf + ass) / 10 }) })
+    const pool = [
+      D(1, 6.6, 0, 0, 60, 'Napoli'), D(2, 6.5, 0, 0, 55, 'Inter'), D(3, 6.5, 0, 0, 50, 'Milan'),
+      D(4, 6.4, 0, 0, 45, 'Roma'), D(5, 6.3, 0, 0, 40, 'Como'), D(6, 6.2, 0, 0, 35, 'Lazio'),   // 6 modificatori (fvm alto)
+      D(90, 6.0, 7, 5, 18, 'Lecce'), D(91, 6.0, 6, 4, 16, 'Parma'),                              // 2 da bonus (fvm BASSO -> senza il mix sarebbero riempitivi)
+      D(80, 5.7, 0, 0, 4, 'Empoli'), D(81, 5.6, 0, 0, 3, 'Verona'),
     ]
-    pl[0].squadra = pl[1].squadra = pl[2].squadra = 'Inter'
-    pl[3].squadra = pl[4].squadra = 'Lecce'
-    const tt: Record<number, TierId> = { 1: 'top', 2: 'top', 3: 'semitop', 11: 'titolare', 12: 'riempitivo' }
-    const big = bigClubs(pl, tt)
-    expect(big.has('Inter')).toBe(true)
-    expect(big.has('Lecce')).toBe(false)
+    const tt: Record<number, TierId> = {}; for (const p of pool) tt[p.id] = p.fvm > 30 ? 'semitop' : p.fvm > 12 ? 'titolare' : 'riempitivo'
+    const s = generateStrategy('', pool, tt, computeTags(pool), predictPrices(pool, tt, DEFAULT_LEAGUE), DEFAULT_LEAGUE)
+    // i due difensori da bonus, pur avendo FVM basso, sono titolari (tetto > 1) grazie al mix
+    expect(s.caps[90]).toBeGreaterThan(1)
+    expect(s.caps[91]).toBeGreaterThan(1)
   })
   it('"tante scommesse" aumenta il numero di scommesse in rosa', () => {
     const base = generateStrategy('', players, tiers, tagsMap, prices, DEFAULT_LEAGUE)

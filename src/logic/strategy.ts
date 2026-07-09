@@ -24,17 +24,6 @@ const STARTERS: Record<Role, number> = { P: 1, D: 5, C: 5, A: 3 }
 // difesa/porta nessun limite (portiere+difensori stessa squadra = modificatore).
 const CLUB_CAP: Record<Role, number> = { P: 3, D: 8, C: 2, A: 1 }
 
-// una squadra è "big" se ha almeno BIG_MIN giocatori di fascia alta: lì stanno
-// le certezze; le scommesse (talento a basso costo) si cercano nelle piccole.
-export const BIG_MIN = 3
-export function bigClubs(players: Player[], tiers: Record<number, TierId>): Set<string> {
-  const count = new Map<string, number>()
-  for (const p of players)
-    if (tiers[p.id] === 'top' || tiers[p.id] === 'semitop')
-      count.set(p.squadra, (count.get(p.squadra) ?? 0) + 1)
-  return new Set([...count].filter(([, n]) => n >= BIG_MIN).map(([sq]) => sq))
-}
-
 /** Sceglie n giocatori dalla lista ordinata rispettando il tetto per club; se
  *  non bastano club diversi, rilassa il vincolo pur di riempire gli slot. */
 function pickWithCap(sorted: Player[], n: number, cap: number, used: Set<number>, clubCount: Map<string, number>): Player[] {
@@ -106,7 +95,7 @@ export function generateStrategy(
   const targets: number[] = []
   const caps: Record<number, number> = {}
   let nStarters = 0, nScomm = 0, nFiller = 0
-  const big = bigClubs(players, tiers)
+  const big = new Set(league.bigClubs) // le "big" = squadre forti configurate nella lega
 
   for (const role of roles) {
     const slots = league.slots[role]
@@ -120,6 +109,8 @@ export function generateStrategy(
         isScomm: tiers[p.id] === 'scommessa' || tags.some(t => t.id === 'ascesa'),
         price: prices.get(p.id)?.base ?? 1,
         fvm: p.fvm,
+        mv: p.stats?.mv ?? 0,
+        bonusVal: (p.stats?.gf ?? 0) + (p.stats?.ass ?? 0),
       }]
     }))
     const m = (id: number) => meta.get(id)!
@@ -130,7 +121,18 @@ export function generateStrategy(
     // 1) titolari garantiti = i migliori per fascia/qualità, diversificando i club
     const byQuality = [...pool].sort((a, b) => (m(b.id).rank + m(b.id).tagBonus) - (m(a.id).rank + m(a.id).tagBonus) || m(b.id).fvm - m(a.id).fvm)
     const starterQ = Math.min(STARTERS[role], slots)
-    const starters = pickWithCap(byQuality, starterQ, cap, used, clubCount)
+    let starters: Player[]
+    if (role === 'D') {
+      // difesa: mescola difensori DA MODIFICATORE (media voto costante) e DA BONUS (gol+assist)
+      const modifQ = Math.min(3, starterQ)
+      const byModif = [...pool].sort((a, b) => m(b.id).mv - m(a.id).mv || (m(b.id).rank - m(a.id).rank) || m(b.id).fvm - m(a.id).fvm)
+      const modif = pickWithCap(byModif, modifQ, cap, used, clubCount)
+      const byBonus = pool.filter(p => !used.has(p.id)).sort((a, b) => m(b.id).bonusVal - m(a.id).bonusVal || (m(b.id).rank - m(a.id).rank) || m(b.id).fvm - m(a.id).fvm)
+      const bonus = pickWithCap(byBonus, starterQ - modif.length, cap, used, clubCount)
+      starters = [...modif, ...bonus]
+    } else {
+      starters = pickWithCap(byQuality, starterQ, cap, used, clubCount)
+    }
 
     // 2) scommesse: fascia scommessa/in ascesa, cercate nelle PICCOLE squadre
     //    (talento a basso costo), stesso tetto per club

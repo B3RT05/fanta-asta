@@ -15,6 +15,23 @@ export interface TargetAdvice {
   why: string
 }
 
+export interface LastBidderRole { role: Role; message: string }
+
+/** Ruoli in cui nessun rivale può più rilanciare (slot pieni o crediti finiti):
+ *  lì l'ultimo rimasto compra a 1 credito -> conviene aspettare e non rilanciare. */
+export function lastBidderRoles(state: { league: LeagueConfig; teams: TeamState[] }): LastBidderRole[] {
+  const { league, teams } = state
+  const me = teams[league.myTeamIndex]
+  const out: LastBidderRole[] = []
+  for (const role of ['P', 'D', 'C', 'A'] as Role[]) {
+    if (me.slotsLeft[role] <= 0) continue
+    const rivalCanBid = teams.some((t, i) => i !== league.myTeamIndex && t.slotsLeft[role] > 0 && t.maxBid >= 2)
+    if (!rivalCanBid)
+      out.push({ role, message: `Sei l'unico a poter comprare in ${ROLE_NAMES[role]}: puoi prenderli a 1 credito, aspetta e non rilanciare.` })
+  }
+  return out
+}
+
 export function adviseTargets(state: {
   targets: number[]; purchases: Purchase[]; players: Player[]
   tiers: Record<number, TierId>; prices: Map<number, PriceRange>

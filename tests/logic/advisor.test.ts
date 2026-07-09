@@ -1,8 +1,9 @@
 import { describe, it, expect } from 'vitest'
 import { deriveTeams } from '@/logic/auction'
 import { profileTeam } from '@/logic/profiles'
-import { adviseTargets, scarcityAlerts } from '@/logic/advisor'
-import { DEFAULT_LEAGUE, DEFAULT_TIER_DEFS, type Player, type PriceRange, type TierId } from '@/logic/types'
+import { adviseTargets, scarcityAlerts, lastBidderRoles } from '@/logic/advisor'
+import type { TeamState } from '@/logic/auction'
+import { DEFAULT_LEAGUE, DEFAULT_TIER_DEFS, type Player, type PriceRange, type Role, type TierId } from '@/logic/types'
 
 const mk = (id: number, ruolo: Player['ruolo'], squadra = 'Inter'): Player =>
   ({ id, nome: `G${id}`, squadra, ruolo, ruoliMantra: [], qtA: 10, qtI: 10, fvm: 100 })
@@ -55,5 +56,27 @@ describe('scarcityAlerts', () => {
     expect(d).toBeDefined()
     expect(d!.remaining).toBe(3)
     expect(d!.myMissing).toBe(8)
+  })
+})
+
+describe('lastBidderRoles', () => {
+  const T = (teamIndex: number, slotsLeft: Record<Role, number>, maxBid: number): TeamState =>
+    ({ teamIndex, name: 'T' + teamIndex, spent: 0, credits: 100, slotsLeft, totalSlotsLeft: 0, maxBid, purchases: [] })
+  it('segnala il ruolo dove nessun rivale può più rilanciare', () => {
+    const teams = [
+      T(0, { P: 1, D: 2, C: 2, A: 2 }, 50),   // io: ho slot
+      T(1, { P: 0, D: 0, C: 0, A: 0 }, 40),   // rivale senza slot
+      T(2, { P: 1, D: 1, C: 1, A: 2 }, 1),    // rivale con slot ma maxBid 1 (non rilancia)
+    ]
+    const res = lastBidderRoles({ league: { ...DEFAULT_LEAGUE, myTeamIndex: 0 }, teams })
+    expect(res.some(r => r.role === 'A')).toBe(true)
+  })
+  it('se un rivale può rilanciare, niente segnalazione per quel ruolo', () => {
+    const teams = [
+      T(0, { P: 1, D: 2, C: 2, A: 2 }, 50),
+      T(1, { P: 0, D: 0, C: 0, A: 3 }, 80),   // rivale con slot A e crediti -> può rilanciare
+    ]
+    const res = lastBidderRoles({ league: { ...DEFAULT_LEAGUE, myTeamIndex: 0 }, teams })
+    expect(res.some(r => r.role === 'A')).toBe(false)
   })
 })

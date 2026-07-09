@@ -2,7 +2,7 @@ import { useContext, useMemo, useState } from 'react'
 import { AppCtx } from './App'
 import { deriveTeams, soldIds } from '@/logic/auction'
 import { profileTeam } from '@/logic/profiles'
-import { adviseTargets, scarcityAlerts } from '@/logic/advisor'
+import { adviseTargets, scarcityAlerts, lastBidderRoles } from '@/logic/advisor'
 import { predictPrices } from '@/logic/pricing'
 import { computeTags, dominantTags } from '@/logic/tags'
 import { downloadBackup } from './backup'
@@ -41,6 +41,7 @@ export default function AstaTab() {
 
   const advice = adviseTargets({ targets: state.targets, purchases: state.purchases, players: state.players, tiers: state.tiers, prices, league: state.league, teams, profiles })
   const alerts = scarcityAlerts({ purchases: state.purchases, players: state.players, tiers: state.tiers, tierDefs: state.tierDefs, league: state.league, teams })
+  const lastRoles = lastBidderRoles({ league: state.league, teams })
   const history = [...state.purchases].sort((a, b) => b.seq - a.seq)
 
   const myTeam = teams[state.league.myTeamIndex]
@@ -103,6 +104,7 @@ export default function AstaTab() {
       <section>
         <h2>Consigli</h2>
         {alerts.map((a, i) => <p key={i} className="advice-alta">⚠ {a.message}</p>)}
+        {lastRoles.map((r, i) => <p key={`lb${i}`} className="advice-bassa">💡 {r.message}</p>)}
         {advice.map(a => (
           <p key={a.playerId} className={`advice-${a.level}`}>
             <strong>{byId.get(a.playerId)?.nome}</strong> — contesa {a.level}: {a.why}

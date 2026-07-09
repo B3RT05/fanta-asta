@@ -75,6 +75,11 @@ export default function SetupTab() {
         <button disabled={state.league.teams.length <= 2}
           onClick={() => setLeague({ teams: state.league.teams.slice(0, -1), myTeamIndex: Math.min(state.league.myTeamIndex, state.league.teams.length - 2) })}>− squadra</button>
         <button onClick={() => setLeague(structuredClone(DEFAULT_LEAGUE))}>Ripristina default</button>
+        <h3>Squadre forti (big)</h3>
+        <p className="hint">Da queste il generatore prende le certezze; le scommesse le cerca nelle piccole. Aggiornale a inizio stagione (nomi esatti come nelle quotazioni, separati da virgola).</p>
+        <input aria-label="Squadre forti" style={{ width: '100%', maxWidth: '34rem' }}
+          value={state.league.bigClubs.join(', ')}
+          onChange={e => setLeague({ bigClubs: e.target.value.split(',').map(s => s.trim()).filter(Boolean) })} />
       </section>
       <section>
         <h2>Backup</h2>
