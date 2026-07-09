@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { generateStrategy } from '@/logic/strategy'
+import { generateStrategy, bigClubs } from '@/logic/strategy'
 import { computeTags } from '@/logic/tags'
 import { predictPrices } from '@/logic/pricing'
 import { DEFAULT_LEAGUE, type Player, type PlayerStats, type TierId } from '@/logic/types'
@@ -93,6 +93,18 @@ describe('generateStrategy', () => {
     const s = generateStrategy('', pool, tt, tg, pr, DEFAULT_LEAGUE)
     const interA = s.targets.filter(id => pool.find(p => p.id === id)?.squadra === 'Inter').length
     expect(interA).toBeLessThanOrEqual(1) // non fa incetta di attaccanti Inter
+  })
+  it('bigClubs: riconosce le squadre con più giocatori di fascia alta', () => {
+    const pl = [
+      P(1, 'A', 300), P(2, 'C', 250), P(3, 'D', 200),   // 3 Inter forti
+      P(11, 'A', 40), P(12, 'C', 30),                    // 2 Lecce deboli
+    ]
+    pl[0].squadra = pl[1].squadra = pl[2].squadra = 'Inter'
+    pl[3].squadra = pl[4].squadra = 'Lecce'
+    const tt: Record<number, TierId> = { 1: 'top', 2: 'top', 3: 'semitop', 11: 'titolare', 12: 'riempitivo' }
+    const big = bigClubs(pl, tt)
+    expect(big.has('Inter')).toBe(true)
+    expect(big.has('Lecce')).toBe(false)
   })
   it('"tante scommesse" aumenta il numero di scommesse in rosa', () => {
     const base = generateStrategy('', players, tiers, tagsMap, prices, DEFAULT_LEAGUE)

@@ -24,6 +24,17 @@ const STARTERS: Record<Role, number> = { P: 1, D: 5, C: 5, A: 3 }
 // difesa/porta nessun limite (portiere+difensori stessa squadra = modificatore).
 const CLUB_CAP: Record<Role, number> = { P: 3, D: 8, C: 2, A: 1 }
 
+// una squadra è "big" se ha almeno BIG_MIN giocatori di fascia alta: lì stanno
+// le certezze; le scommesse (talento a basso costo) si cercano nelle piccole.
+export const BIG_MIN = 3
+export function bigClubs(players: Player[], tiers: Record<number, TierId>): Set<string> {
+  const count = new Map<string, number>()
+  for (const p of players)
+    if (tiers[p.id] === 'top' || tiers[p.id] === 'semitop')
+      count.set(p.squadra, (count.get(p.squadra) ?? 0) + 1)
+  return new Set([...count].filter(([, n]) => n >= BIG_MIN).map(([sq]) => sq))
+}
+
 /** Sceglie n giocatori dalla lista ordinata rispettando il tetto per club; se
  *  non bastano club diversi, rilassa il vincolo pur di riempire gli slot. */
 function pickWithCap(sorted: Player[], n: number, cap: number, used: Set<number>, clubCount: Map<string, number>): Player[] {
@@ -95,6 +106,7 @@ export function generateStrategy(
   const targets: number[] = []
   const caps: Record<number, number> = {}
   let nStarters = 0, nScomm = 0, nFiller = 0
+  const big = bigClubs(players, tiers)
 
   for (const role of roles) {
     const slots = league.slots[role]
@@ -120,10 +132,14 @@ export function generateStrategy(
     const starterQ = Math.min(STARTERS[role], slots)
     const starters = pickWithCap(byQuality, starterQ, cap, used, clubCount)
 
-    // 2) scommesse (fascia scommessa o in ascesa), stesso tetto per club
+    // 2) scommesse: fascia scommessa/in ascesa, cercate nelle PICCOLE squadre
+    //    (talento a basso costo), stesso tetto per club
     const scommQ = Math.min(scommPerRole[role], slots - starters.length)
     const scommSorted = byQuality.filter(p => !used.has(p.id))
-      .sort((a, b) => (Number(m(b.id).isScomm) - Number(m(a.id).isScomm)) || m(b.id).fvm - m(a.id).fvm)
+      .sort((a, b) =>
+        (Number(m(b.id).isScomm) - Number(m(a.id).isScomm)) ||
+        (Number(!big.has(b.squadra)) - Number(!big.has(a.squadra))) ||  // preferisci le piccole
+        m(b.id).fvm - m(a.id).fvm)
     const scommesse = pickWithCap(scommSorted, scommQ, cap, used, clubCount)
 
     // 3) riempitivi = i più economici per completare gli slot

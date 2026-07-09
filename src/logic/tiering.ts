@@ -35,7 +35,9 @@ type MetricKey = 'gol' | 'fm' | 'pv' | 'mv' | 'bonus' | 'cleansheet'
 export const ROLE_WEIGHTS: Record<Role, Partial<Record<MetricKey, number>>> = {
   A: { gol: 0.40, fm: 0.40, pv: 0.20 },
   C: { fm: 0.60, pv: 0.40 },
-  D: { fm: 0.30, mv: 0.28, pv: 0.17, bonus: 0.25 },
+  // difensori: la COSTANZA della media voto base (modificatore) conta più dei
+  // bonus sporadici; teniamo comunque i bonus (gol+assist) come discriminante
+  D: { mv: 0.34, fm: 0.26, pv: 0.18, bonus: 0.22 },
   // portieri: presenze e gol subiti (clean sheet) prima di media voto e fantamedia
   P: { cleansheet: 0.32, pv: 0.30, mv: 0.20, fm: 0.18 },
 }
