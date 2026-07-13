@@ -2,7 +2,8 @@ import { useContext, useMemo, useState } from 'react'
 import { AppCtx } from './App'
 import { deriveTeams, soldIds, canFieldFormation } from '@/logic/auction'
 import { profileTeam } from '@/logic/profiles'
-import { adviseTargets, scarcityAlerts, lastBidderRoles, contesaFor } from '@/logic/advisor'
+import { adviseTargets, scarcityAlerts, lastBidderRoles, contesaFor, bluffSuggestions } from '@/logic/advisor'
+import { roleInflation } from '@/logic/inflation'
 import { predictPrices } from '@/logic/pricing'
 import { computeTags, dominantTags, tagDescription } from '@/logic/tags'
 import { meterValues } from '@/logic/meters'
@@ -49,6 +50,8 @@ export default function AstaTab() {
   const advice = adviseTargets({ targets: state.targets, purchases: state.purchases, players: state.players, tiers: state.tiers, prices, league: state.league, teams, profiles })
   const alerts = scarcityAlerts({ purchases: state.purchases, players: state.players, tiers: state.tiers, tierDefs: state.tierDefs, league: state.league, teams })
   const lastRoles = lastBidderRoles({ league: state.league, teams })
+  const inflation = roleInflation(state.purchases, state.players, prices).filter(x => x.level !== 'normale')
+  const bluffs = bluffSuggestions({ targets: state.targets, purchases: state.purchases, players: state.players, tiers: state.tiers, prices, league: state.league, teams, profiles })
   const history = [...state.purchases].sort((a, b) => b.seq - a.seq)
 
   const myTeam = teams[state.league.myTeamIndex]
@@ -179,6 +182,14 @@ export default function AstaTab() {
       <section>
         <h2>Consigli</h2>
         {alerts.map((a, i) => <p key={i} className="advice-alta">⚠ {a.message}</p>)}
+        {inflation.map(x => (
+          <p key={`inf${x.role}`} className={x.level === 'bolla' ? 'advice-alta' : 'advice-bassa'}>
+            {x.level === 'bolla' ? '📈' : '📉'} {x.message} <small>(medio {x.avgPaid} vs previsto {x.avgPredicted}, {x.bought} acquisti)</small>
+          </p>
+        ))}
+        {bluffs.map(b => (
+          <p key={`bluff${b.playerId}`} className="advice-media">🎭 {b.message}</p>
+        ))}
         {lastRoles.map((r, i) => <p key={`lb${i}`} className="advice-bassa">💡 {r.message}</p>)}
         {advice.map(a => (
           <p key={a.playerId} className={`advice-${a.level}`}>

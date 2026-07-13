@@ -132,7 +132,8 @@ describe('generateStrategy', () => {
     P(500 + i, 'A', 220 - i * 22, st({ gf: 22 - i * 2, fm: 7, pv: 32 })))
   attk.forEach((p, i) => { p.squadra = CLUBS[i] })
   const attTiers: Record<number, TierId> = {}; for (const p of attk) attTiers[p.id] = p.fvm > 120 ? 'top' : p.fvm > 60 ? 'semitop' : 'titolare'
-  const attPrices = new Map(attk.map((p, i) => [p.id, { base: 200 - i * 24, min: 180 - i * 24, max: 220 - i * 24 }]))
+  // prezzi sotto il tetto disciplina (35% di 500 = 175): id 500 = 170 il più caro
+  const attPrices = new Map(attk.map((p, i) => [p.id, { base: 170 - i * 20, min: 160 - i * 20, max: 175 - i * 20 }]))
   const attTags = computeTags(attk)
 
   it('genera tre proposte con caratteri diversi (stelle/equilibrata/valore)', () => {
@@ -163,6 +164,16 @@ describe('generateStrategy', () => {
     const b = paidIds(second)
     // il secondo batch introduce giocatori pagati non presenti nel primo
     expect([...b].some(id => !seen.has(id))).toBe(true)
+  })
+  it('disciplina: nessun titolare pagato supera il 35% del budget', () => {
+    // un attaccante "fuori mercato" costa il 60% del budget: non deve essere targettato
+    const caro = players[0].id
+    const pr = new Map(players.map(p => [p.id, p.id === caro ? { base: 300, min: 290, max: 310 } : { base: 12, min: 10, max: 14 }]))
+    const s = generateStrategy('attacco', players, tiers, tagsMap, pr, DEFAULT_LEAGUE)
+    const max = Math.round(DEFAULT_LEAGUE.budget * 0.35)
+    for (const c of Object.values(s.caps)) expect(c).toBeLessThanOrEqual(max)
+    // il big troppo caro non è tra i titolari pagati (al più riempitivo da 1)
+    expect((s.caps[caro] ?? 0) <= 1).toBe(true)
   })
   it('"tante scommesse" aumenta il numero di scommesse in rosa', () => {
     const base = generateStrategy('', players, tiers, tagsMap, prices, DEFAULT_LEAGUE)

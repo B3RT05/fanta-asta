@@ -1,6 +1,6 @@
 import { tierLabel, type LeagueConfig, type Player, type PriceRange, type Purchase, type Role, type TierDef, type TierId } from './types'
 import { soldIds, type TeamState } from './auction'
-import { LOWCOST_PRICE, TRAIT_BIG_PCT, type TeamProfile } from './profiles'
+import { LOWCOST_PRICE, TRAIT_BIG_PCT, TRAIT_ROLE_PCT, type TeamProfile } from './profiles'
 
 // da calibrare
 export const SCARCITY_MARGIN = 2
@@ -79,6 +79,56 @@ export function contesaFor(pl: Player, ctx: {
       ? `solo ${rivals.length} rivali possibili: buon momento per chiamarlo`
       : `${rivals.length} avversari con slot e crediti: aspetta che si riempiano`
   return { rivals, level, callNow, why }
+}
+
+// Metodo CarmySpecial — chiamate strategiche (bluff): nomina profili
+// desiderati dagli avversari (idoli locali, big) al solo scopo di prosciugarne
+// la liquidità, tenendo al sicuro i tuoi veri obiettivi.
+export const BLUFF_MIN_PREDICTED = 8
+export interface BluffCall { playerId: number; teamIndex: number; drain: number; message: string }
+
+export function bluffSuggestions(state: {
+  targets: number[]; purchases: Purchase[]; players: Player[]
+  tiers: Record<number, TierId>; prices: Map<number, PriceRange>
+  league: LeagueConfig; teams: TeamState[]; profiles: TeamProfile[]
+}, limit = 4): BluffCall[] {
+  const { targets, purchases, players, tiers, prices, league, teams, profiles } = state
+  const sold = soldIds(purchases)
+  const mine = new Set(targets)
+  const cand: (BluffCall & { score: number })[] = []
+
+  for (const pl of players) {
+    if (sold.has(pl.id) || mine.has(pl.id)) continue // solo giocatori che NON voglio
+    const tier = tiers[pl.id]
+    if (tier !== 'top' && tier !== 'semitop') continue // il bluff drena solo su profili appetibili
+    const pr = prices.get(pl.id)
+    if (!pr || pr.base < BLUFF_MIN_PREDICTED) continue
+    const minPrice = pr.min ?? 2
+
+    // trova il rivale che più lo desidera e ha crediti veri da bruciare
+    let best: { t: TeamState; score: number; reason: string } | null = null
+    for (const t of teams) {
+      if (t.teamIndex === league.myTeamIndex) continue
+      if (t.slotsLeft[pl.ruolo] <= 0) continue
+      if (t.maxBid < Math.max(2 * minPrice, BLUFF_MIN_PREDICTED)) continue // deve poter rilanciare sul serio
+      const prof = profiles[t.teamIndex]
+      const reliable = t.purchases.length >= PROFILE_MIN_PURCHASES
+      const bigAff = league.bigClubs.includes(pl.squadra) ? (reliable ? prof.bigClubPct : 0.5) : 0
+      const roleAff = reliable ? prof.roleSpendPct[pl.ruolo] : 0.25
+      const score = t.maxBid * (1 + bigAff + roleAff)
+      const reason = bigAff >= TRAIT_BIG_PCT ? 'compra dalle big'
+        : roleAff >= TRAIT_ROLE_PCT ? `carica su ${ROLE_NAMES[pl.ruolo]}`
+          : `ha ${t.maxBid} cr da spendere`
+      if (!best || score > best.score) best = { t, score, reason }
+    }
+    if (!best) continue
+    cand.push({
+      playerId: pl.id, teamIndex: best.t.teamIndex, drain: best.t.maxBid, score: best.score,
+      message: `Chiama ${pl.nome} (${pl.squadra}): lo insegue ${best.t.name} — ${best.reason} (${best.t.maxBid} cr). Prosciugalo, non è un tuo obiettivo.`,
+    })
+  }
+  cand.sort((a, b) => b.score - a.score)
+  return cand.slice(0, limit).map(c => ({ playerId: c.playerId, teamIndex: c.teamIndex, drain: c.drain, message: c.message }))
 }
 
 export interface ScarcityAlert { role: Role; tier: TierId; remaining: number; myMissing: number; message: string }

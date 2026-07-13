@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { deriveTeams } from '@/logic/auction'
 import { profileTeam } from '@/logic/profiles'
-import { adviseTargets, scarcityAlerts, lastBidderRoles, contesaFor } from '@/logic/advisor'
+import { adviseTargets, scarcityAlerts, lastBidderRoles, contesaFor, bluffSuggestions } from '@/logic/advisor'
 import type { TeamState } from '@/logic/auction'
 import { DEFAULT_LEAGUE, DEFAULT_TIER_DEFS, type Player, type PriceRange, type Role, type TierId } from '@/logic/types'
 
@@ -90,5 +90,42 @@ describe('lastBidderRoles', () => {
     ]
     const res = lastBidderRoles({ league: { ...DEFAULT_LEAGUE, myTeamIndex: 0 }, teams })
     expect(res.some(r => r.role === 'A')).toBe(false)
+  })
+})
+
+describe('bluffSuggestions', () => {
+  it('suggerisce di chiamare un top che NON è mio, appetibile a un rivale con crediti', () => {
+    // top attaccante non mio; rivali con slot A e budget pieno
+    const players = [mk(1, 'A', 'Napoli'), ...Array.from({ length: 24 }, (_, i) => mk(100 + i, 'D'))]
+    const tiers: Record<number, TierId> = { 1: 'top' }
+    const prices = new Map<number, PriceRange>([[1, { base: 120, min: 100, max: 140 }]])
+    const s = setup([], players, tiers, prices) // asta vuota: tutti pieni di crediti
+    const bluffs = bluffSuggestions({ ...s, targets: [] })
+    expect(bluffs.length).toBeGreaterThan(0)
+    expect(bluffs[0].playerId).toBe(1)
+    expect(bluffs[0].message).toMatch(/Chiama G1/)
+  })
+  it('non suggerisce un giocatore che è un mio obiettivo', () => {
+    const players = [mk(1, 'A', 'Napoli')]
+    const tiers: Record<number, TierId> = { 1: 'top' }
+    const prices = new Map<number, PriceRange>([[1, { base: 120, min: 100, max: 140 }]])
+    const s = setup([], players, tiers, prices)
+    expect(bluffSuggestions({ ...s, targets: [1] })).toHaveLength(0) // è mio -> niente bluff
+  })
+  it('non suggerisce se i rivali non hanno crediti per rilanciare', () => {
+    const players = [mk(1, 'A', 'Napoli'), ...Array.from({ length: 24 }, (_, i) => mk(100 + i, 'D'))]
+    const tiers: Record<number, TierId> = { 1: 'top' }
+    const prices = new Map<number, PriceRange>([[1, { base: 120, min: 100, max: 140 }]])
+    // squadre 1..7 hanno quasi esaurito il budget: non possono rilanciare su un top da 100+
+    const purchases = Array.from({ length: 7 }, (_, t) => ({ playerId: 100 + t, teamIndex: t + 1, price: 495, seq: t + 1 }))
+    const s = setup(purchases, players, tiers, prices)
+    expect(bluffSuggestions({ ...s, targets: [] }).some(b => b.playerId === 1)).toBe(false)
+  })
+  it('ignora i riempitivi (fascia bassa / previsto sotto soglia)', () => {
+    const players = [mk(1, 'A', 'Empoli')]
+    const tiers: Record<number, TierId> = { 1: 'riempitivo' }
+    const prices = new Map<number, PriceRange>([[1, { base: 3, min: 1, max: 5 }]])
+    const s = setup([], players, tiers, prices)
+    expect(bluffSuggestions({ ...s, targets: [] })).toHaveLength(0)
   })
 })

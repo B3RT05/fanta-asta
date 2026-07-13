@@ -41,8 +41,14 @@ const STYLE_CFG: Record<StrategyStyle, StyleCfg> = {
 const ROLE_NAME: Record<Role, string> = { P: 'Portieri', D: 'Difensori', C: 'Centrocampo', A: 'Attacco' }
 const TIER_RANK: Record<string, number> = { top: 5, semitop: 4, titolare: 3, scommessa: 2, riempitivo: 1, skip: 0 }
 
-// ripartizione di base (%) — attacco-oriented tipico del Classic
+// ripartizione di base (%) — attacco-oriented tipico del Classic.
+// (Il "portiere ~5%" del Metodo CarmySpecial è già il ramo "portiere low cost":
+//  descrivi "portiere low cost" per scendere al 5% e spostare i crediti altrove.)
 const BASE: Record<Role, number> = { P: 0.08, D: 0.18, C: 0.34, A: 0.40 }
+
+// Metodo CarmySpecial: mai oltre il 30-35% del budget su un singolo elemento
+// (oltre distrugge la competitività della rosa). Tetto duro alla spesa/giocatore.
+export const MAX_SINGLE_PCT = 0.35
 
 // titolari "garantiti" per reparto (i migliori; il resto della rosa = scommesse + riempitivi)
 const STARTERS: Record<Role, number> = { P: 1, D: 5, C: 5, A: 3 }
@@ -116,6 +122,7 @@ export function generateStrategy(
   const caps: Record<number, number> = {}
   let nStarters = 0, nScomm = 0, nFiller = 0
   const big = new Set(league.bigClubs) // le "big" = squadre forti configurate nella lega
+  const maxSingle = Math.round(league.budget * MAX_SINGLE_PCT) // tetto duro per singolo giocatore
 
   for (const role of roles) {
     const slots = league.slots[role]
@@ -152,6 +159,7 @@ export function generateStrategy(
         for (const p of sorted) {
           if (picks.length >= n) break
           if (used.has(p.id)) continue
+          if (cost(p) > maxSingle) continue // disciplina: mai oltre il 35% del budget su un singolo
           if (pass < 1 && avoid.has(p.id)) continue // evita i giocatori già proposti altrove
           if (pass < 2 && (clubCount.get(p.squadra) ?? 0) >= clubCap) continue
           if (budgetLeft - cost(p) < slotsToFill - 1) continue // non affordabile lasciando 1 agli altri slot
@@ -222,6 +230,7 @@ export function generateStrategy(
     '',
     `Rosa completa: ${targets.length}/${slotsTot} giocatori — ${nStarters} titolari garantiti, ${nScomm} scommesse, ${nFiller} riempitivi da 1.`,
     `Spesa stimata ai prezzi reali: ${capTotal}/${league.budget} crediti (rispetta il tuo prezzo dove l'hai impostato, altrimenti il previsto).`,
+    `Disciplina di budget (Metodo CarmySpecial): nessun singolo giocatore oltre il ${Math.round(MAX_SINGLE_PCT * 100)}% del budget (max ${maxSingle} cr).`,
     'Club diversificati: max 1 attaccante e 2 centrocampisti per squadra (in difesa nessun limite, per il modificatore).',
     'Nella lista della spesa trovi tutti gli slot col prezzo reale. Ritocca a mano: è una bozza di partenza.',
   ].join('\n')

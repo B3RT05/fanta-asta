@@ -2,7 +2,7 @@ import { useContext, useMemo, useState } from 'react'
 import { AppCtx } from './App'
 import { predictPrices } from '@/logic/pricing'
 import { computeTags } from '@/logic/tags'
-import { generateStrategyVariants, type StrategyVariant } from '@/logic/strategy'
+import { generateStrategyVariants, MAX_SINGLE_PCT, type StrategyVariant } from '@/logic/strategy'
 import { shoppingListText } from '@/logic/exportList'
 import Pitch from './Pitch'
 import { tierLabel, type Role } from '@/logic/types'
@@ -154,6 +154,7 @@ export default function StrategiaTab() {
                     const pr = prices.get(p.id)
                     const cap = caps[p.id] ?? 0
                     const over = pr && cap > 0 && cap > pr.max
+                    const overBudget = cap > budget * MAX_SINGLE_PCT // disciplina: >35% del budget su un singolo
                     return (
                       <tr key={p.id}>
                         <td>{p.nome} <small className="hint">{p.squadra}</small></td>
@@ -163,7 +164,8 @@ export default function StrategiaTab() {
                         <td><input type="number" min={0} aria-label={`max ${p.nome}`} style={{ width: '5rem' }}
                           value={cap || ''} placeholder="—"
                           onChange={e => dispatch({ type: 'setTargetCap', playerId: p.id, cap: Number(e.target.value) })} />
-                          {over ? <span className="badge b-trap" style={{ marginLeft: '.4rem' }}>sopra il previsto</span> : null}</td>
+                          {over ? <span className="badge b-trap" style={{ marginLeft: '.4rem' }}>sopra il previsto</span> : null}
+                          {overBudget ? <span className="badge b-trap" style={{ marginLeft: '.4rem' }} title={`Oltre il ${Math.round(MAX_SINGLE_PCT * 100)}% del budget: il Metodo CarmySpecial sconsiglia di superarlo su un singolo`}>{Math.round(cap / budget * 100)}% del budget</span> : null}</td>
                       </tr>
                     )
                   })}
