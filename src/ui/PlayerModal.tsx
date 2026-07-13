@@ -1,6 +1,7 @@
 import { tierLabel, type Player, type PlayerStats, type PriceRange, type TierDef, type TierId } from '@/logic/types'
 import type { Tag } from '@/logic/tags'
 import Meter from './Meter'
+import TeamChip from './TeamChip'
 
 const ROLE_LABEL: Record<string, string> = { P: 'Portiere', D: 'Difensore', C: 'Centrocampista', A: 'Attaccante' }
 
@@ -42,7 +43,7 @@ export default function PlayerModal({ player, tierDefs, tier, price, isTarget, t
         <header className="modal-head">
           <div>
             <h2>{p.nome} {isTarget && <span title="target" className="star">★</span>}</h2>
-            <p className="hint">{p.squadra} · {ROLE_LABEL[p.ruolo] ?? p.ruolo}{p.ruoliMantra.length ? ` · Mantra: ${p.ruoliMantra.join(', ')}` : ''}</p>
+            <p className="hint"><TeamChip team={p.squadra} /> {p.squadra} · {ROLE_LABEL[p.ruolo] ?? p.ruolo}{p.ruoliMantra.length ? ` · Mantra: ${p.ruoliMantra.join(', ')}` : ''}</p>
           </div>
           <button aria-label="Chiudi" onClick={onClose}>✕</button>
         </header>

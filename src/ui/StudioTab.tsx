@@ -2,6 +2,7 @@ import { useContext, useMemo, useState } from 'react'
 import { AppCtx } from './App'
 import PlayerModal from './PlayerModal'
 import Meter from './Meter'
+import TeamChip from './TeamChip'
 import { predictPrices } from '@/logic/pricing'
 import { computeTags } from '@/logic/tags'
 import { matchesQuery } from '@/logic/search'
@@ -99,7 +100,7 @@ export default function StudioTab() {
                 <td><button className="star" aria-label={`target ${p.nome}`} onClick={() => dispatch({ type: 'toggleTarget', playerId: p.id })}>
                   {state.targets.includes(p.id) ? '★' : '☆'}</button></td>
                 <td><button className="link" onClick={() => setDetailId(p.id)}>{p.nome}</button>{review.has(p.id) ? <span aria-hidden="true"> ⚠</span> : null}</td>
-                <td className="muted">{p.squadra}</td>
+                <td><TeamChip team={p.squadra} /></td>
                 <td><span className={`rolebadge r-${p.ruolo}`}>{p.ruolo}</span></td>
                 <td><select aria-label="Fascia" value={state.tiers[p.id]}
                   onChange={e => dispatch({ type: 'setTier', playerId: p.id, tier: e.target.value as TierId })}>
