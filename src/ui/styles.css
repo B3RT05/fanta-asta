@@ -253,7 +253,7 @@ td button:hover { background: transparent; transform: scale(1.15); }
 .tag-pro   { background: var(--primary-soft); color: var(--primary); border-color: var(--primary-line); }
 .tag-malus { background: var(--danger-soft); color: var(--danger); border-color: color-mix(in srgb, var(--danger) 35%, transparent); }
 .tag-risk  { background: var(--amber-soft); color: var(--amber); border-color: color-mix(in srgb, var(--amber) 40%, transparent); }
-.tagcell { white-space: normal; min-width: 12rem; max-width: 20rem; }
+.tagcell { white-space: normal; min-width: 14rem; max-width: 24rem; }
 
 /* ---------------- Indicatori visivi (barrette) ---------------- */
 .tablescroll { overflow-x: auto; border-radius: var(--radius-sm); }

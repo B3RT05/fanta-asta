@@ -5,6 +5,7 @@ import Meter from './Meter'
 import TeamChip from './TeamChip'
 import { predictPrices } from '@/logic/pricing'
 import { computeTags, tagsCompatible, tagDescription } from '@/logic/tags'
+import { meterValues } from '@/logic/meters'
 import { matchesQuery } from '@/logic/search'
 import { FM_TITOLARE, PV_SOLIDO, PV_TITOLARE } from '@/logic/tiering'
 import type { Role, TierId } from '@/logic/types'
@@ -25,6 +26,7 @@ export default function StudioTab() {
 
   const prices = useMemo(() => predictPrices(state.players, state.tiers, state.league), [state.players, state.tiers, state.league])
   const tagsMap = useMemo(() => computeTags(state.players), [state.players])
+  const meters = useMemo(() => meterValues(state.players), [state.players])
   if (state.players.length === 0) return <main>Studio: carica prima il listone nel Setup.</main>
 
   // elenco sottocategorie e squadre presenti (per i filtri)
@@ -92,10 +94,6 @@ export default function StudioTab() {
 
   const planTotal = (Object.values(state.rolePlan) as number[]).reduce((a, b) => a + b, 0)
 
-  // indicatori visivi (0..1) dai dati che abbiamo
-  const titolarita = (p: typeof shown[0]) => p.stats ? Math.min(1, p.stats.pv / 34) : null
-  const rendimento = (p: typeof shown[0]) => p.stats ? Math.max(0, Math.min(1, (p.stats.fm - 5) / 2.2)) : null
-
   return (
     <main>
       <section>
@@ -156,6 +154,7 @@ export default function StudioTab() {
         <thead><tr>
           <th></th>
           <th className="sortable" onClick={() => toggleSort('nome')}>Nome{arrow('nome')}</th>
+          <th className="sortable" onClick={() => toggleSort('tag')} title="Ordina per qualità dei tag (pro − malus)">Tag{arrow('tag')}</th>
           <th className="sortable" onClick={() => toggleSort('squadra')}>Squadra{arrow('squadra')}</th>
           <th className="sortable" onClick={() => toggleSort('ruolo')}>R{arrow('ruolo')}</th>
           <th className="sortable" onClick={() => toggleSort('fascia')}>Fascia{arrow('fascia')}</th>
@@ -168,7 +167,6 @@ export default function StudioTab() {
           <th className="sortable" onClick={() => toggleSort('prezzo')}>Prev.{arrow('prezzo')}</th>
           <th className="sortable" onClick={() => toggleSort('mio')} title="Il tuo prezzo previsto / massima spesa per questo giocatore">Mio €{arrow('mio')}</th>
           <th></th>
-          <th className="sortable" onClick={() => toggleSort('tag')} title="Ordina per qualità dei tag (pro − malus)">Tag{arrow('tag')}</th>
         </tr></thead>
         <tbody>
           {shown.map(p => {
@@ -178,14 +176,17 @@ export default function StudioTab() {
                 <td><button className="star" aria-label={`target ${p.nome}`} onClick={() => dispatch({ type: 'toggleTarget', playerId: p.id })}>
                   {state.targets.includes(p.id) ? '★' : '☆'}</button></td>
                 <td><button className="link" onClick={() => setDetailId(p.id)}>{p.nome}</button>{review.has(p.id) ? <span aria-hidden="true"> ⚠</span> : null}</td>
+                <td className="tagcell"><div className="tags">
+                  {(tagsMap.get(p.id) ?? []).map(t => <span key={t.id} title={tagDescription(t.id)} className={`badge tag-${t.kind}`}>{t.label}</span>)}
+                </div></td>
                 <td><TeamChip team={p.squadra} /></td>
                 <td><span className={`rolebadge r-${p.ruolo}`}>{p.ruolo}</span></td>
                 <td><select aria-label="Fascia" value={state.tiers[p.id]}
                   onChange={e => dispatch({ type: 'setTier', playerId: p.id, tier: e.target.value as TierId })}>
                   {state.tierDefs.map(d => <option key={d.id} value={d.id}>{d.label}</option>)}
                 </select></td>
-                <td><Meter value={titolarita(p)} title={p.stats ? `${p.stats.pv} presenze` : undefined} /></td>
-                <td><Meter value={rendimento(p)} title={p.stats ? `fantamedia ${p.stats.fm}` : undefined} /></td>
+                <td><Meter value={meters.get(p.id)?.titolarita ?? null} title={p.stats ? `${p.stats.pv} presenze` : undefined} /></td>
+                <td><Meter value={meters.get(p.id)?.rendimento ?? null} title={p.stats ? `fantamedia ${p.stats.fm} (nel ruolo)` : undefined} /></td>
                 <td>{p.fvm}</td><td>{p.qtA}</td>
                 <td>{p.stats?.fm ?? '—'}</td><td>{p.stats?.pv ?? '—'}</td>
                 <td>{pr ? `${pr.min}–${pr.max}` : '1'}</td>
@@ -197,9 +198,6 @@ export default function StudioTab() {
                   : isTrappola(p)
                     ? <span className="badge b-trap">trappola</span>
                     : <span className="badge b-neu">neutro</span>}</td>
-                <td className="tagcell"><div className="tags">
-                  {(tagsMap.get(p.id) ?? []).map(t => <span key={t.id} title={tagDescription(t.id)} className={`badge tag-${t.kind}`}>{t.label}</span>)}
-                </div></td>
               </tr>
             )
           })}
@@ -212,7 +210,7 @@ export default function StudioTab() {
         if (!p) return null
         return <PlayerModal player={p} tierDefs={state.tierDefs} tier={state.tiers[p.id]}
           price={prices.get(p.id)} isTarget={state.targets.includes(p.id)} tags={tagsMap.get(p.id) ?? []}
-          myPrice={state.targetCaps?.[p.id]} onClose={() => setDetailId(null)} />
+          myPrice={state.targetCaps?.[p.id]} meter={meters.get(p.id)} onClose={() => setDetailId(null)} />
       })()}
     </main>
   )

@@ -5,15 +5,14 @@ import { profileTeam } from '@/logic/profiles'
 import { adviseTargets, scarcityAlerts, lastBidderRoles, contesaFor } from '@/logic/advisor'
 import { predictPrices } from '@/logic/pricing'
 import { computeTags, dominantTags, tagDescription } from '@/logic/tags'
+import { meterValues } from '@/logic/meters'
 import { downloadBackup } from './backup'
 import Meter from './Meter'
 import TeamChip from './TeamChip'
 import Pitch from './Pitch'
-import { tierLabel, type Player, type Role } from '@/logic/types'
+import { tierLabel, type Role } from '@/logic/types'
 
 const ROLE_NAME: Record<Role, string> = { P: 'Portieri', D: 'Difensori', C: 'Centrocampo', A: 'Attacco' }
-const titMeter = (p?: Player) => p?.stats ? Math.min(1, p.stats.pv / 34) : null
-const renMeter = (p?: Player) => p?.stats ? Math.max(0, Math.min(1, (p.stats.fm - 5) / 2.2)) : null
 
 export default function AstaTab() {
   const { state, dispatch } = useContext(AppCtx)
@@ -25,6 +24,7 @@ export default function AstaTab() {
   const teams = useMemo(() => deriveTeams(state.purchases, state.league, state.players), [state.purchases, state.league, state.players])
   const profiles = useMemo(() => teams.map(t => profileTeam(t, state.players, state.tiers, prices, state.league)), [teams, state.players, state.tiers, prices, state.league])
   const tagsMap = useMemo(() => computeTags(state.players), [state.players])
+  const meters = useMemo(() => meterValues(state.players), [state.players])
   if (state.players.length === 0) return <main>Asta: carica prima il listone nel Setup.</main>
 
   const sold = soldIds(state.purchases)
@@ -76,7 +76,7 @@ export default function AstaTab() {
             const cap = state.targetCaps?.[selected.id]
             return <span className="regmeta">
               <TeamChip team={selected.squadra} /> {selected.ruolo}
-              {' '}<Meter value={titMeter(selected)} title="titolarità" /> <Meter value={renMeter(selected)} title="rendimento" />
+              {' '}<Meter value={meters.get(selected.id)?.titolarita ?? null} title="titolarità" /> <Meter value={meters.get(selected.id)?.rendimento ?? null} title="rendimento (nel ruolo)" />
               {pr && <> · previsto <strong>{pr.min}–{pr.max}</strong></>}
               {cap ? <> · <span className="myprice-tag">Mio € {cap}</span></> : null}
             </span>

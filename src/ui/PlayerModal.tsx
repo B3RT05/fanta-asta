@@ -1,5 +1,6 @@
 import { tierLabel, type Player, type PlayerStats, type PriceRange, type TierDef, type TierId } from '@/logic/types'
 import { tagDescription, type Tag } from '@/logic/tags'
+import type { MeterVals } from '@/logic/meters'
 import Meter from './Meter'
 import TeamChip from './TeamChip'
 
@@ -26,7 +27,7 @@ function Row({ k, v }: { k: string; v: React.ReactNode }) {
   return <div className="kv"><dt>{k}</dt><dd>{v}</dd></div>
 }
 
-export default function PlayerModal({ player, tierDefs, tier, price, isTarget, tags, myPrice, onClose }: {
+export default function PlayerModal({ player, tierDefs, tier, price, isTarget, tags, myPrice, meter, onClose }: {
   player: Player
   tierDefs: TierDef[]
   tier: TierId
@@ -34,6 +35,7 @@ export default function PlayerModal({ player, tierDefs, tier, price, isTarget, t
   isTarget: boolean
   tags: Tag[]
   myPrice?: number
+  meter?: MeterVals
   onClose: () => void
 }) {
   const p = player
@@ -58,12 +60,12 @@ export default function PlayerModal({ player, tierDefs, tier, price, isTarget, t
           </section>
         )}
 
-        {p.stats && (
+        {p.stats && meter && (
           <section className="modal-block">
             <h3>Indicatori</h3>
             <dl className="kvgrid">
-              <Row k="Titolarità" v={<Meter value={Math.min(1, p.stats.pv / 34)} title={`${p.stats.pv} presenze`} />} />
-              <Row k="Rendimento" v={<Meter value={Math.max(0, Math.min(1, (p.stats.fm - 5) / 2.2))} title={`fantamedia ${p.stats.fm}`} />} />
+              <Row k="Titolarità" v={<Meter value={meter.titolarita} title={`${p.stats.pv} presenze`} />} />
+              <Row k="Rendimento" v={<Meter value={meter.rendimento} title={`fantamedia ${p.stats.fm} (nel ruolo)`} />} />
             </dl>
           </section>
         )}
