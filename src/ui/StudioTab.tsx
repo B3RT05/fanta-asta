@@ -15,7 +15,7 @@ export default function StudioTab() {
   const [tierFilter, setTierFilter] = useState<TierId | 'tutte'>('tutte')
   const [q, setQ] = useState('')
   const [onlyReview, setOnlyReview] = useState(false)
-  const [tagFilter, setTagFilter] = useState('tutte')
+  const [selectedTags, setSelectedTags] = useState<Set<string>>(new Set())
   const [teamFilter, setTeamFilter] = useState('tutte')
   const [priceMin, setPriceMin] = useState('')
   const [priceMax, setPriceMax] = useState('')
@@ -44,7 +44,7 @@ export default function StudioTab() {
       (tierFilter === 'tutte' || state.tiers[p.id] === tierFilter) &&
       (teamFilter === 'tutte' || p.squadra === teamFilter) &&
       (!onlyReview || review.has(p.id)) &&
-      (tagFilter === 'tutte' || (tagsMap.get(p.id) ?? []).some(t => t.id === tagFilter)) &&
+      (selectedTags.size === 0 || (tagsMap.get(p.id) ?? []).some(t => selectedTags.has(t.id))) &&
       (pMin === null || (base !== null && base >= pMin)) &&
       (pMax === null || (base !== null && base <= pMax)) &&
       matchesQuery([p.nome, p.squadra], q)
@@ -120,18 +120,25 @@ export default function StudioTab() {
         </select></label>
         <label> Cerca <input aria-label="Cerca" placeholder="cognome o squadra…" value={q} onChange={e => setQ(e.target.value)} /></label>
         <label> <input type="checkbox" checked={onlyReview} onChange={e => setOnlyReview(e.target.checked)} /> solo da rivedere ({state.review.length})</label>
-        <label> Sottocategoria <select aria-label="Sottocategoria" value={tagFilter} onChange={e => setTagFilter(e.target.value)}>
-          <option value="tutte">tutte</option>
-          {tagOptions.map(([id, label]) => <option key={id} value={id}>{label}</option>)}
-        </select></label>
         <label> Squadra <select aria-label="SquadraFiltro" value={teamFilter} onChange={e => setTeamFilter(e.target.value)}>
           <option value="tutte">tutte</option>
           {teamOptions.map(t => <option key={t} value={t}>{t}</option>)}
         </select></label>
         <label> Prezzo previsto <input type="number" aria-label="Prezzo min" placeholder="min" style={{ width: '4.5rem' }} value={priceMin} onChange={e => setPriceMin(e.target.value)} />
           <input type="number" aria-label="Prezzo max" placeholder="max" style={{ width: '4.5rem' }} value={priceMax} onChange={e => setPriceMax(e.target.value)} /></label>
-        <button onClick={() => { setRole('tutti'); setTierFilter('tutte'); setTeamFilter('tutte'); setTagFilter('tutte'); setQ(''); setOnlyReview(false); setPriceMin(''); setPriceMax('') }}>Azzera filtri</button>
+        <button onClick={() => { setRole('tutti'); setTierFilter('tutte'); setTeamFilter('tutte'); setSelectedTags(new Set()); setQ(''); setOnlyReview(false); setPriceMin(''); setPriceMax('') }}>Azzera filtri</button>
         <span className="hint"> {shown.length} giocatori</span>
+      </section>
+
+      <section className="tagfilter" aria-label="Filtro sottocategorie">
+        <span className="hint">Sottocategorie (clic per selezionarne più di una):</span>
+        <div className="tags">
+          {tagOptions.map(([id, label]) => (
+            <button key={id} aria-label={`tag ${label}`} className={`badge tagpick ${selectedTags.has(id) ? 'on' : ''}`}
+              onClick={() => setSelectedTags(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n })}>{label}</button>
+          ))}
+          {selectedTags.size > 0 && <button className="link" onClick={() => setSelectedTags(new Set())}>azzera tag</button>}
+        </div>
       </section>
 
       <div className="tablescroll">

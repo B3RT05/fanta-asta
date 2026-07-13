@@ -61,6 +61,14 @@ describe('StudioTab', () => {
     await userEvent.selectOptions(screen.getByLabelText('SquadraFiltro'), 'Inter')
     expect(screen.getByText('Lautaro')).toBeInTheDocument()
   })
+  it('filtro sottocategorie multiplo (OR)', async () => {
+    render(<Harness init={init} />)
+    await userEvent.click(screen.getByRole('button', { name: 'tag Bomber' }))
+    expect(screen.getByText('Lautaro')).toBeInTheDocument()
+    expect(screen.queryByText('Rrahmani')).not.toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'tag Da bonus' }))
+    expect(screen.getByText('Rrahmani')).toBeInTheDocument() // OR: entra anche il difensore da bonus
+  })
   it('clic sul nome apre la scheda con tutti i dati del giocatore', async () => {
     render(<Harness init={init} />)
     await userEvent.click(screen.getByRole('button', { name: 'Lautaro' }))
