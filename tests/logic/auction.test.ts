@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { deriveTeams, soldIds } from '@/logic/auction'
+import { deriveTeams, soldIds, canFieldFormation } from '@/logic/auction'
 import { DEFAULT_LEAGUE, type Player } from '@/logic/types'
 
 const mk = (id: number, ruolo: Player['ruolo']): Player =>
@@ -32,5 +32,17 @@ describe('deriveTeams', () => {
   })
   it('soldIds', () => {
     expect(soldIds([{ playerId: 7, teamIndex: 2, price: 3, seq: 1 }]).has(7)).toBe(true)
+  })
+})
+
+describe('canFieldFormation', () => {
+  it('rosa valida per un modulo -> true', () => {
+    expect(canFieldFormation({ P: 1, D: 3, C: 4, A: 3 })).toBe(true)   // 3-4-3
+    expect(canFieldFormation({ P: 1, D: 5, C: 3, A: 2 })).toBe(true)   // 5-3-2
+  })
+  it('senza portiere o senza abbastanza per reparto -> false', () => {
+    expect(canFieldFormation({ P: 0, D: 5, C: 5, A: 3 })).toBe(false) // niente portiere
+    expect(canFieldFormation({ P: 1, D: 8, C: 1, A: 1 })).toBe(false) // solo 1 centrocampista
+    expect(canFieldFormation({ P: 1, D: 2, C: 2, A: 1 })).toBe(false) // troppo pochi outfield
   })
 })

@@ -15,6 +15,17 @@ export function soldIds(purchases: Purchase[]): Set<number> {
   return new Set(purchases.map(p => p.playerId))
 }
 
+/** Puoi schierare un 11 valido? Servono 1 portiere e un modulo di reparto
+ *  ammesso (D 3-5, C 3-5, A 1-3, somma 10) coi giocatori che hai. */
+export function canFieldFormation(bought: Record<Role, number>): boolean {
+  if ((bought.P ?? 0) < 1) return false
+  for (let d = 3; d <= 5; d++)
+    for (let c = 3; c <= 5; c++)
+      for (let a = 1; a <= 3; a++)
+        if (d + c + a === 10 && d <= (bought.D ?? 0) && c <= (bought.C ?? 0) && a <= (bought.A ?? 0)) return true
+  return false
+}
+
 export function deriveTeams(purchases: Purchase[], league: LeagueConfig, players: Player[]): TeamState[] {
   const byId = new Map(players.map(p => [p.id, p]))
   return league.teams.map((name, teamIndex) => {
