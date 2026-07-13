@@ -165,6 +165,28 @@ describe('generateStrategy', () => {
     // il secondo batch introduce giocatori pagati non presenti nel primo
     expect([...b].some(id => !seen.has(id))).toBe(true)
   })
+  it('"valore": reinveste il residuo, non risparmia più di 100 crediti', () => {
+    // rosa realistica multi-club con certezze economiche disponibili
+    const clubs = ['Inter', 'Milan', 'Roma', 'Napoli', 'Juventus', 'Como', 'Lazio', 'Atalanta',
+      'Fiorentina', 'Bologna', 'Torino', 'Udinese', 'Genoa', 'Parma', 'Lecce', 'Cagliari', 'Verona', 'Empoli', 'Monza', 'Venezia']
+    const pool: Player[] = []
+    let id = 1
+    for (const [ruolo, cnt] of [['P', 6], ['D', 18], ['C', 18], ['A', 14]] as [Player['ruolo'], number][])
+      for (let i = 0; i < cnt; i++) { pool.push(P(id, ruolo, 130 - i * 6, st({ pv: 32, mv: 6.2, fm: 6.2, gf: 5, ass: 3 }))); pool[pool.length - 1].squadra = clubs[i % clubs.length]; id++ }
+    const tt: Record<number, TierId> = {}; for (const p of pool) tt[p.id] = p.fvm > 105 ? 'top' : p.fvm > 55 ? 'semitop' : 'titolare'
+    const pr = new Map<number, PriceRange>(pool.map(p => [p.id, { base: Math.max(1, Math.round(p.fvm / 4)), min: 1, max: 60 }]))
+    const vs = generateStrategyVariants('', pool, tt, computeTags(pool), pr, DEFAULT_LEAGUE)
+    for (const v of vs) {
+      const spesa = Object.values(v.caps).reduce((a, b) => a + b, 0)
+      expect(spesa).toBeLessThanOrEqual(DEFAULT_LEAGUE.budget)          // mai oltre il budget
+      expect(DEFAULT_LEAGUE.budget - spesa).toBeLessThanOrEqual(100)    // non risparmia più di 100
+      expect(Object.values(v.caps).every(c => c <= Math.round(DEFAULT_LEAGUE.budget * 0.35))).toBe(true) // tetto 35% intatto
+    }
+    // "valore": le certezze reinvestite non sono top (compra garanzie, non big)
+    const valore = vs.find(v => v.style === 'valore')!
+    const paidTop = valore.targets.filter(pid => (valore.caps[pid] ?? 0) > 1 && tt[pid] === 'top')
+    expect(paidTop).toHaveLength(0)
+  })
   it('disciplina: nessun titolare pagato supera il 35% del budget', () => {
     // un attaccante "fuori mercato" costa il 60% del budget: non deve essere targettato
     const caro = players[0].id

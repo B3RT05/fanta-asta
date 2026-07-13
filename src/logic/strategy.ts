@@ -50,6 +50,14 @@ const BASE: Record<Role, number> = { P: 0.08, D: 0.18, C: 0.34, A: 0.40 }
 // (oltre distrugge la competitività della rosa). Tetto duro alla spesa/giocatore.
 export const MAX_SINGLE_PCT = 0.35
 
+// A rosa piena si reinveste il budget avanzato: i crediti non spesi vanno
+// sprecati (una rosa che usa metà budget non è competitiva). Trasformiamo i
+// riempitivi da 1 credito in "certezze" finché il residuo scende sotto questa
+// soglia. Le certezze sono titolari/semitop solidi (per lo stile "valore" MAI
+// dei top: si comprano garanzie di voto, non big).
+export const REINVEST_RESERVE = 12
+const CERT_TIERS = new Set<TierId>(['top', 'semitop', 'titolare'])
+
 // titolari "garantiti" per reparto (i migliori; il resto della rosa = scommesse + riempitivi)
 const STARTERS: Record<Role, number> = { P: 1, D: 5, C: 5, A: 3 }
 
@@ -183,7 +191,9 @@ export function generateStrategy(
     const byQuality = [...pool].sort(styleCmp)
     // salta i N più costosi in assoluto (per non prendere sempre il big più caro)
     const drop = new Set(cfg.avoidTopN > 0 ? [...pool].sort((a, b) => m(b.id).price - m(a.id).price).slice(0, cfg.avoidTopN).map(p => p.id) : [])
-    const cand = byQuality.filter(p => !drop.has(p.id))
+    // stile "valore": niente big di fascia top, solo semitop/titolari (garanzie)
+    const noTop = cfg.starterKey === 'value'
+    const cand = byQuality.filter(p => !drop.has(p.id) && !(noTop && tiers[p.id] === 'top'))
     const starterQ = Math.min(STARTERS[role], slots)
     let starters: Player[]
     if (role === 'D') {
@@ -218,6 +228,58 @@ export function generateStrategy(
     for (const p of fillers) { targets.push(p.id); caps[p.id] = 1 }
     nStarters += starters.length; nScomm += scommesse.length; nFiller += fillers.length
   }
+
+  // --- Reinvestimento del residuo: usa i crediti avanzati per trasformare i
+  //     riempitivi da 1 credito in certezze, senza superare il tetto del 35%
+  //     né i limiti di club. Lo stile "valore" evita i top (compra garanzie).
+  {
+    const byIdP = new Map(players.map(p => [p.id, p]))
+    const costG = (id: number) => Math.max(1, Math.round(userCaps[id] ?? prices.get(id)?.base ?? 1))
+    const qual = (id: number) => (TIER_RANK[tiers[id]] ?? 0) * 1000 + (byIdP.get(id)?.fvm ?? 0)
+    const excludeTop = cfg.starterKey === 'value' // "valore": niente top, solo certezze
+    const ceil = excludeTop ? Math.round(league.budget * 0.25) : maxSingle
+    const eligible = (id: number) => CERT_TIERS.has(tiers[id]) && !(excludeTop && tiers[id] === 'top')
+    const poolByRole: Record<Role, Player[]> = { P: [], D: [], C: [], A: [] }
+    for (const p of players) poolByRole[p.ruolo].push(p)
+    for (const r of roles) poolByRole[r].sort((a, b) => qual(b.id) - qual(a.id))
+    const roleClub: Record<Role, Map<string, number>> = { P: new Map(), D: new Map(), C: new Map(), A: new Map() }
+    for (const id of targets) { const pl = byIdP.get(id)!; const mm = roleClub[pl.ruolo]; mm.set(pl.squadra, (mm.get(pl.squadra) ?? 0) + 1) }
+    const usedG = new Set(targets)
+
+    let leftover = league.budget - Object.values(caps).reduce((s, c) => s + c, 0)
+    let guard = targets.length + 8
+    while (leftover > REINVEST_RESERVE && guard-- > 0) {
+      let best: { role: Role; fillerId: number; cand: Player; cost: number; gain: number } | null = null
+      for (const role of roles) {
+        const fillerId = targets.find(id => byIdP.get(id)!.ruolo === role && caps[id] === 1)
+        if (fillerId === undefined) continue
+        const fillerPl = byIdP.get(fillerId)!
+        const mm = roleClub[role]; const clubCap = CLUB_CAP[role]
+        for (const p of poolByRole[role]) {
+          if (usedG.has(p.id) || !eligible(p.id)) continue
+          const c = costG(p.id)
+          if (c > maxSingle || c > ceil || c > leftover + 1) continue // affordabile sostituendo un riempitivo da 1
+          const cnt = (mm.get(p.squadra) ?? 0) - (p.squadra === fillerPl.squadra ? 1 : 0)
+          if (cnt >= clubCap) continue
+          const gain = qual(p.id)
+          if (!best || gain > best.gain) best = { role, fillerId, cand: p, cost: c, gain }
+          break // il pool è ordinato per qualità: il primo affordabile è il migliore per questo ruolo
+        }
+      }
+      if (!best) break
+      const idx = targets.indexOf(best.fillerId)
+      const fillerPl = byIdP.get(best.fillerId)!
+      targets[idx] = best.cand.id
+      delete caps[best.fillerId]; caps[best.cand.id] = best.cost
+      usedG.delete(best.fillerId); usedG.add(best.cand.id)
+      const mm = roleClub[best.role]
+      mm.set(fillerPl.squadra, (mm.get(fillerPl.squadra) ?? 1) - 1)
+      mm.set(best.cand.squadra, (mm.get(best.cand.squadra) ?? 0) + 1)
+      leftover -= best.cost - 1
+      nFiller--; nStarters++
+    }
+  }
+
   const capTotal = Object.values(caps).reduce((s, c) => s + c, 0)
 
   const pct = (r: Role) => Math.round(100 * rolePlan[r] / league.budget)
@@ -229,7 +291,7 @@ export function generateStrategy(
     ...roles.map(r => `  ${ROLE_NAME[r]}: ${rolePlan[r]} crediti (${pct(r)}%)`),
     '',
     `Rosa completa: ${targets.length}/${slotsTot} giocatori — ${nStarters} titolari garantiti, ${nScomm} scommesse, ${nFiller} riempitivi da 1.`,
-    `Spesa stimata ai prezzi reali: ${capTotal}/${league.budget} crediti (rispetta il tuo prezzo dove l'hai impostato, altrimenti il previsto).`,
+    `Spesa stimata ai prezzi reali: ${capTotal}/${league.budget} crediti (residuo ${league.budget - capTotal}). Il budget avanzato è reinvestito in certezze, non risparmiato.`,
     `Disciplina di budget (Metodo CarmySpecial): nessun singolo giocatore oltre il ${Math.round(MAX_SINGLE_PCT * 100)}% del budget (max ${maxSingle} cr).`,
     'Club diversificati: max 1 attaccante e 2 centrocampisti per squadra (in difesa nessun limite, per il modificatore).',
     'Nella lista della spesa trovi tutti gli slot col prezzo reale. Ritocca a mano: è una bozza di partenza.',
