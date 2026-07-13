@@ -8,6 +8,7 @@ import { computeTags, dominantTags, tagDescription } from '@/logic/tags'
 import { downloadBackup } from './backup'
 import Meter from './Meter'
 import TeamChip from './TeamChip'
+import Pitch from './Pitch'
 import { tierLabel, type Player, type Role } from '@/logic/types'
 
 const ROLE_NAME: Record<Role, string> = { P: 'Portieri', D: 'Difensori', C: 'Centrocampo', A: 'Attacco' }
@@ -121,6 +122,7 @@ export default function AstaTab() {
         return (
           <section>
             <h2>La mia rosa</h2>
+            <Pitch players={myTeam.purchases.map(pu => byId.get(pu.playerId)).filter((p): p is NonNullable<typeof p> => !!p)} />
             <p className="hint">Budget: speso <strong>{myTeam.spent}</strong> / {state.league.budget} · residuo <strong>{myTeam.credits}</strong> · max rilancio <strong>{myTeam.maxBid}</strong></p>
             <p>Formazione schierabile: {canField
               ? <span className="badge b-occ">sì, hai un 11</span>

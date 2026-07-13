@@ -29,7 +29,7 @@ describe('StrategiaTab', () => {
   })
   it('mostra gli obiettivi con il campo max che pago', async () => {
     render(<Harness init={init} />)
-    expect(screen.getByText('Lautaro')).toBeInTheDocument()
+    expect(screen.getAllByText('Lautaro').length).toBeGreaterThan(0) // in lista e sul campetto
     const cap = screen.getByLabelText('max Lautaro')
     await userEvent.type(cap, '150')
     expect((cap as HTMLInputElement).value).toBe('150')

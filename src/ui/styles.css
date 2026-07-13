@@ -293,6 +293,46 @@ form p { flex-basis: 100%; margin: .3rem 0 0; }
 .budgetbar { display: inline-block; width: 5rem; height: 8px; border-radius: 4px; background: var(--surface-3); overflow: hidden; vertical-align: middle; }
 .budgetbar i { display: block; height: 100%; background: var(--accent); }
 
+/* ---------------- Campetto (squad builder) ---------------- */
+.pitch {
+  position: relative;
+  display: flex; flex-direction: column; justify-content: space-between;
+  gap: .4rem; padding: 1rem .6rem;
+  min-height: 22rem; border-radius: var(--radius);
+  background:
+    repeating-linear-gradient(0deg, #1f7a44 0 2.4rem, #1c6e3d 2.4rem 4.8rem);
+  border: 2px solid rgba(255, 255, 255, .18);
+  overflow: hidden;
+}
+.pitch::before { /* cerchio di centrocampo + linea */
+  content: ""; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+  width: 7rem; height: 7rem; border: 2px solid rgba(255, 255, 255, .18); border-radius: 50%;
+}
+.pitch::after {
+  content: ""; position: absolute; left: 6%; right: 6%; top: 50%;
+  border-top: 2px solid rgba(255, 255, 255, .16);
+}
+.pitch-row { position: relative; z-index: 1; display: flex; justify-content: space-around; align-items: center; gap: .4rem; }
+.pitch-player {
+  display: flex; flex-direction: column; align-items: center; gap: .15rem;
+  min-width: 3.5rem; max-width: 6rem;
+}
+.pitch-player .pn {
+  font-size: .68rem; font-weight: 700; color: #fff; text-align: center;
+  background: rgba(0, 0, 0, .45); padding: .05rem .3rem; border-radius: 4px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 6rem;
+}
+.pitch-player.empty {
+  width: 2.2rem; height: 2.2rem; border-radius: 50%;
+  border: 2px dashed rgba(255, 255, 255, .35); color: rgba(255, 255, 255, .6);
+  align-items: center; justify-content: center; font-weight: 800; font-size: .8rem;
+}
+.pitch-formation {
+  position: absolute; top: .5rem; right: .7rem; z-index: 2;
+  background: rgba(0, 0, 0, .5); color: #fff; font-weight: 800; font-size: .8rem;
+  padding: .15rem .5rem; border-radius: 999px;
+}
+
 /* input "mio prezzo" nella tabella */
 input.myprice { width: 4rem; padding: .25rem .35rem; font-size: .84rem; }
 input.myprice::placeholder { color: var(--faint); }

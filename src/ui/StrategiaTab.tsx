@@ -4,6 +4,7 @@ import { predictPrices } from '@/logic/pricing'
 import { computeTags } from '@/logic/tags'
 import { generateStrategy } from '@/logic/strategy'
 import { shoppingListText } from '@/logic/exportList'
+import Pitch from './Pitch'
 import { tierLabel, type Role } from '@/logic/types'
 
 const ROLE_NAME: Record<Role, string> = { P: 'Portieri', D: 'Difensori', C: 'Centrocampo', A: 'Attacco' }
@@ -75,6 +76,13 @@ export default function StrategiaTab() {
           {planTotal > budget ? ' — stai sforando!' : ` (liberi ${budget - planTotal})`}
         </p>
       </section>
+
+      {targets.length > 0 && (
+        <section>
+          <h2>Il tuo 11 titolare (dagli obiettivi)</h2>
+          <Pitch players={targets} />
+        </section>
+      )}
 
       <section>
         <h2>Lista della spesa (obiettivi)</h2>
