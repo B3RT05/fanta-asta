@@ -187,6 +187,17 @@ describe('generateStrategy', () => {
     const paidTop = valore.targets.filter(pid => (valore.caps[pid] ?? 0) > 1 && tt[pid] === 'top')
     expect(paidTop).toHaveLength(0)
   })
+  it('il modulo scelto guida difesa vs attacco (5-3-2 investe più in difesa del 3-4-3)', () => {
+    const difesa = generateStrategy('', players, tiers, tagsMap, prices, DEFAULT_LEAGUE, {}, { module: { D: 5, C: 3, A: 2 } })
+    const attacco = generateStrategy('', players, tiers, tagsMap, prices, DEFAULT_LEAGUE, {}, { module: { D: 3, C: 4, A: 3 } })
+    // il modulo con difesa a 5 mette più budget sulla difesa e meno sull'attacco
+    expect(difesa.rolePlan.D).toBeGreaterThan(attacco.rolePlan.D)
+    expect(difesa.rolePlan.A).toBeLessThan(attacco.rolePlan.A)
+    // e paga più difensori "premium" (utile al modificatore: pesca i 3 migliori tra più opzioni)
+    const paidD = (s: typeof difesa) => s.targets.filter(id => players.find(p => p.id === id)?.ruolo === 'D' && (s.caps[id] ?? 0) > 1).length
+    expect(paidD(difesa)).toBeGreaterThanOrEqual(paidD(attacco))
+    expect(difesa.notes).toMatch(/5-3-2/)
+  })
   it('disciplina: nessun titolare pagato supera il 35% del budget', () => {
     // un attaccante "fuori mercato" costa il 60% del budget: non deve essere targettato
     const caro = players[0].id

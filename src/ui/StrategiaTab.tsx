@@ -5,6 +5,7 @@ import { computeTags } from '@/logic/tags'
 import { generateStrategyVariants, MAX_SINGLE_PCT, type StrategyVariant } from '@/logic/strategy'
 import { shoppingListText } from '@/logic/exportList'
 import Pitch from './Pitch'
+import { MODULES, moduleLabel, type Formation } from '@/logic/formation'
 import { tierLabel, type Role } from '@/logic/types'
 
 const ROLE_NAME: Record<Role, string> = { P: 'Portieri', D: 'Difensori', C: 'Centrocampo', A: 'Attacco' }
@@ -16,11 +17,14 @@ export default function StrategiaTab() {
   const tagsMap = useMemo(() => computeTags(state.players), [state.players])
   const byId = useMemo(() => new Map(state.players.map(p => [p.id, p])), [state.players])
   const [desc, setDesc] = useState('')
+  const [moduleKey, setModuleKey] = useState('auto') // 'auto' o "D-C-A"
   const [variants, setVariants] = useState<StrategyVariant[]>([])
   const [seen, setSeen] = useState<Set<number>>(new Set()) // titolari già proposti, per generarne di diversi
 
+  const chosenModule: Formation | undefined = MODULES.find(m => moduleLabel(m) === moduleKey)
+
   const proponi = (avoid: Set<number>) => {
-    const vs = generateStrategyVariants(desc, state.players, state.tiers, tagsMap, prices, state.league, state.manualCaps ?? {}, avoid)
+    const vs = generateStrategyVariants(desc, state.players, state.tiers, tagsMap, prices, state.league, state.manualCaps ?? {}, avoid, chosenModule)
     setVariants(vs)
     const paid = vs.flatMap(v => v.targets.filter(id => (v.caps[id] ?? 0) > 1))
     setSeen(prev => new Set([...prev, ...paid]))
@@ -54,6 +58,17 @@ export default function StrategiaTab() {
         <input aria-label="Descrizione strategia" style={{ width: '100%', maxWidth: '40rem' }}
           placeholder="es. difesa da modificatore e un top in attacco, portiere low cost, qualche scommessa"
           value={desc} onChange={e => setDesc(e.target.value)} />
+        <div style={{ margin: '.5rem 0' }}>
+          <label>Modulo{' '}
+            <select aria-label="Modulo" value={moduleKey} onChange={e => setModuleKey(e.target.value)}>
+              <option value="auto">Auto (dai giocatori)</option>
+              {MODULES.map(m => <option key={moduleLabel(m)} value={moduleLabel(m)}>{moduleLabel(m)}</option>)}
+            </select>
+          </label>
+          <span className="hint" style={{ marginLeft: '.6rem' }}>
+            più difensori (4-5) = modificatore più solido; non sei obbligato alla difesa a 3.
+          </span>
+        </div>
         <div style={{ display: 'flex', gap: '.5rem', flexWrap: 'wrap' }}>
           <button className="btn-primary" disabled={state.players.length === 0} onClick={genera}>Genera 3 strategie</button>
           {variants.length > 0 && <button disabled={state.players.length === 0} onClick={generaDiverse}>↻ Altre 3 diverse</button>}
@@ -127,7 +142,7 @@ export default function StrategiaTab() {
       {targets.length > 0 && (
         <section>
           <h2>Il tuo 11 titolare (dagli obiettivi)</h2>
-          <Pitch players={targets} />
+          <Pitch players={targets} formation={chosenModule} />
         </section>
       )}
 

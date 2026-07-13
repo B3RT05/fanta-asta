@@ -1,9 +1,9 @@
-import { bestXI } from '@/logic/formation'
+import { bestXI, type Formation } from '@/logic/formation'
 import TeamChip from './TeamChip'
 import type { Player, Role } from '@/logic/types'
 
-export default function Pitch({ players }: { players: Player[] }) {
-  const xi = bestXI(players)
+export default function Pitch({ players, formation }: { players: Player[]; formation?: Formation }) {
+  const xi = bestXI(players, formation)
   const rows: [Role, number][] = [['A', xi.formation.A], ['C', xi.formation.C], ['D', xi.formation.D], ['P', 1]]
   return (
     <div className="pitch" role="img" aria-label={`Formazione ${xi.formation.D}-${xi.formation.C}-${xi.formation.A}`}>

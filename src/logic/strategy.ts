@@ -1,6 +1,7 @@
 import { normalizeText } from './search'
 import type { LeagueConfig, Player, PriceRange, Role, TierId } from './types'
 import type { Tag } from './tags'
+import type { Formation } from './formation'
 
 export interface GeneratedStrategy {
   rolePlan: Record<Role, number>
@@ -78,10 +79,15 @@ export function generateStrategy(
   description: string, players: Player[], tiers: Record<number, TierId>,
   tagsMap: Map<number, Tag[]>, prices: Map<number, PriceRange>, league: LeagueConfig,
   userCaps: Record<number, number> = {},
-  opts: { style?: StrategyStyle; avoid?: Set<number> } = {},
+  opts: { style?: StrategyStyle; avoid?: Set<number>; module?: Formation } = {},
 ): StrategyVariant {
   const cfg = STYLE_CFG[opts.style ?? 'equilibrata']
   const avoid = opts.avoid ?? new Set<number>()
+  // titolari "premium" garantiti per reparto: dal modulo scelto (XI) se dato,
+  // altrimenti la ripartizione di default orientata alla profondità.
+  const startersByRole: Record<Role, number> = opts.module
+    ? { P: 1, D: opts.module.D, C: opts.module.C, A: opts.module.A }
+    : STARTERS
   const q = normalizeText(description)
   const has = (...ks: string[]) => ks.some(k => q.includes(k))
   const recognized: string[] = []
@@ -106,6 +112,18 @@ export function generateStrategy(
   const wantScommesse = has('scommess', 'giovan', 'rischi', 'sorpres')
   if (wantScommesse) recognized.push('scommesse')
   if (has('equilibrat', 'bilanciat')) recognized.push('equilibrato')
+
+  // inclina il budget dei reparti verso il modulo scelto: un modulo con più
+  // difensori (es. 5-3-2) sposta crediti sulla difesa (modificatore più solido),
+  // uno più offensivo (3-4-3) sull'attacco. Blend leggero per non stravolgere.
+  if (opts.module) {
+    const outfield: Role[] = ['D', 'C', 'A']
+    const modTot = opts.module.D + opts.module.C + opts.module.A
+    const cur = outfield.reduce((s, r) => s + w[r], 0)
+    const LAMBDA = 0.4
+    const target: Record<Role, number> = { P: w.P, D: opts.module.D / modTot * cur, C: opts.module.C / modTot * cur, A: opts.module.A / modTot * cur }
+    for (const r of outfield) w[r] = w[r] * (1 - LAMBDA) + target[r] * LAMBDA
+  }
 
   // normalizza e converti in crediti (somma == budget)
   const tot = (['P', 'D', 'C', 'A'] as Role[]).reduce((s, r) => s + w[r], 0)
@@ -194,7 +212,7 @@ export function generateStrategy(
     // stile "valore": niente big di fascia top, solo semitop/titolari (garanzie)
     const noTop = cfg.starterKey === 'value'
     const cand = byQuality.filter(p => !drop.has(p.id) && !(noTop && tiers[p.id] === 'top'))
-    const starterQ = Math.min(STARTERS[role], slots)
+    const starterQ = Math.min(startersByRole[role], slots)
     let starters: Player[]
     if (role === 'D') {
       const modifQ = Math.min(3, starterQ)
@@ -290,6 +308,7 @@ export function generateStrategy(
     'Ripartizione budget:',
     ...roles.map(r => `  ${ROLE_NAME[r]}: ${rolePlan[r]} crediti (${pct(r)}%)`),
     '',
+    opts.module ? `Modulo: ${opts.module.D}-${opts.module.C}-${opts.module.A} (titolari premium: ${opts.module.D} dif, ${opts.module.C} cen, ${opts.module.A} att).` : 'Modulo: automatico.',
     `Rosa completa: ${targets.length}/${slotsTot} giocatori — ${nStarters} titolari garantiti, ${nScomm} scommesse, ${nFiller} riempitivi da 1.`,
     `Spesa stimata ai prezzi reali: ${capTotal}/${league.budget} crediti (residuo ${league.budget - capTotal}). Il budget avanzato è reinvestito in certezze, non risparmiato.`,
     `Disciplina di budget (Metodo CarmySpecial): nessun singolo giocatore oltre il ${Math.round(MAX_SINGLE_PCT * 100)}% del budget (max ${maxSingle} cr).`,
@@ -309,12 +328,13 @@ export function generateStrategyVariants(
   description: string, players: Player[], tiers: Record<number, TierId>,
   tagsMap: Map<number, Tag[]>, prices: Map<number, PriceRange>, league: LeagueConfig,
   userCaps: Record<number, number> = {}, avoidInitial: Iterable<number> = [],
+  module?: Formation,
 ): StrategyVariant[] {
   const styles: StrategyStyle[] = ['stelle', 'equilibrata', 'valore']
   const avoid = new Set<number>(avoidInitial)
   const out: StrategyVariant[] = []
   for (const style of styles) {
-    const v = generateStrategy(description, players, tiers, tagsMap, prices, league, userCaps, { style, avoid })
+    const v = generateStrategy(description, players, tiers, tagsMap, prices, league, userCaps, { style, avoid, module })
     out.push(v)
     // i titolari "pagati" (tetto > 1) di questa variante vengono evitati (soft) dalle successive
     for (const id of v.targets) if ((v.caps[id] ?? 0) > 1) avoid.add(id)
