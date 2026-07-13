@@ -69,6 +69,7 @@ export default function StudioTab() {
       case 'rendimento': case 'fm': return p.stats?.fm ?? -1
       case 'qta': return p.qtA
       case 'prezzo': return prices.get(p.id)?.base ?? -1
+      case 'mio': return state.targetCaps?.[p.id] ?? -1
       default: return p.fvm
     }
   }
@@ -164,6 +165,7 @@ export default function StudioTab() {
           <th className="sortable" onClick={() => toggleSort('fm')}>Fm{arrow('fm')}</th>
           <th className="sortable" onClick={() => toggleSort('pv')}>Pv{arrow('pv')}</th>
           <th className="sortable" onClick={() => toggleSort('prezzo')}>Prev.{arrow('prezzo')}</th>
+          <th className="sortable" onClick={() => toggleSort('mio')} title="Il tuo prezzo previsto / massima spesa per questo giocatore">Mio €{arrow('mio')}</th>
           <th></th><th>Tag</th>
         </tr></thead>
         <tbody>
@@ -185,6 +187,9 @@ export default function StudioTab() {
                 <td>{p.fvm}</td><td>{p.qtA}</td>
                 <td>{p.stats?.fm ?? '—'}</td><td>{p.stats?.pv ?? '—'}</td>
                 <td>{pr ? `${pr.min}–${pr.max}` : '1'}</td>
+                <td><input type="number" min={0} className="myprice" aria-label={`mio prezzo ${p.nome}`}
+                  placeholder="—" value={state.targetCaps?.[p.id] ?? ''}
+                  onChange={e => dispatch({ type: 'setTargetCap', playerId: p.id, cap: Number(e.target.value) })} /></td>
                 <td>{isOccasione(p)
                   ? <span className="badge b-occ">occasione</span>
                   : isTrappola(p)
@@ -204,7 +209,8 @@ export default function StudioTab() {
         const p = state.players.find(pl => pl.id === detailId)
         if (!p) return null
         return <PlayerModal player={p} tierDefs={state.tierDefs} tier={state.tiers[p.id]}
-          price={prices.get(p.id)} isTarget={state.targets.includes(p.id)} tags={tagsMap.get(p.id) ?? []} onClose={() => setDetailId(null)} />
+          price={prices.get(p.id)} isTarget={state.targets.includes(p.id)} tags={tagsMap.get(p.id) ?? []}
+          myPrice={state.targetCaps?.[p.id]} onClose={() => setDetailId(null)} />
       })()}
     </main>
   )

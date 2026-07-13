@@ -26,13 +26,14 @@ function Row({ k, v }: { k: string; v: React.ReactNode }) {
   return <div className="kv"><dt>{k}</dt><dd>{v}</dd></div>
 }
 
-export default function PlayerModal({ player, tierDefs, tier, price, isTarget, tags, onClose }: {
+export default function PlayerModal({ player, tierDefs, tier, price, isTarget, tags, myPrice, onClose }: {
   player: Player
   tierDefs: TierDef[]
   tier: TierId
   price?: PriceRange
   isTarget: boolean
   tags: Tag[]
+  myPrice?: number
   onClose: () => void
 }) {
   const p = player
@@ -72,6 +73,7 @@ export default function PlayerModal({ player, tierDefs, tier, price, isTarget, t
           <dl className="kvgrid">
             <Row k="Fascia" v={<span className="badge b-neu">{tierLabel(tierDefs, tier)}</span>} />
             <Row k="Prezzo previsto" v={price ? `${price.min}–${price.max} (atteso ${price.base})` : '≈ 1'} />
+            <Row k="Il mio prezzo" v={myPrice ? `${myPrice}` : <span className="hint">non impostato</span>} />
           </dl>
         </section>
 

@@ -77,6 +77,13 @@ describe('StudioTab', () => {
     // Rrahmani è Titolarissimo ma non Bomber -> escluso dall'AND
     expect(screen.queryByText('Rrahmani')).not.toBeInTheDocument()
   })
+  it('imposta il proprio prezzo per un giocatore', async () => {
+    render(<Harness init={init} />)
+    const row = screen.getByText('Lautaro').closest('tr')!
+    const input = within(row).getByLabelText(/mio prezzo/i)
+    await userEvent.type(input, '250')
+    expect((input as HTMLInputElement).value).toBe('250')
+  })
   it('clic sul nome apre la scheda con tutti i dati del giocatore', async () => {
     render(<Harness init={init} />)
     await userEvent.click(screen.getByRole('button', { name: 'Lautaro' }))
