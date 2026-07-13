@@ -2,13 +2,13 @@ import { useContext, useMemo, useState } from 'react'
 import { AppCtx } from './App'
 import { deriveTeams, soldIds, canFieldFormation } from '@/logic/auction'
 import { profileTeam } from '@/logic/profiles'
-import { adviseTargets, scarcityAlerts, lastBidderRoles } from '@/logic/advisor'
+import { adviseTargets, scarcityAlerts, lastBidderRoles, contesaFor } from '@/logic/advisor'
 import { predictPrices } from '@/logic/pricing'
-import { computeTags, dominantTags } from '@/logic/tags'
+import { computeTags, dominantTags, tagDescription } from '@/logic/tags'
 import { downloadBackup } from './backup'
 import Meter from './Meter'
 import TeamChip from './TeamChip'
-import type { Player, Role } from '@/logic/types'
+import { tierLabel, type Player, type Role } from '@/logic/types'
 
 const ROLE_NAME: Record<Role, string> = { P: 'Portieri', D: 'Difensori', C: 'Centrocampo', A: 'Attacco' }
 const titMeter = (p?: Player) => p?.stats ? Math.min(1, p.stats.pv / 34) : null
@@ -85,6 +85,34 @@ export default function AstaTab() {
           {warning && <p className="error">{warning}</p>}
         </form>
       </section>
+
+      {selected && (() => {
+        const c = contesaFor(selected, { prices, league: state.league, teams, profiles })
+        const pr = prices.get(selected.id)
+        const cap = state.targetCaps?.[selected.id]
+        const tags = tagsMap.get(selected.id) ?? []
+        const isTarget = state.targets.includes(selected.id)
+        const roleAlert = alerts.find(a => a.role === selected.ruolo)
+        const last = lastRoles.find(r => r.role === selected.ruolo)
+        return (
+          <section className="called">
+            <h2>Consiglio sul chiamato</h2>
+            <p className="called-head">
+              <TeamChip team={selected.squadra} /> <strong>{selected.nome}</strong> · {ROLE_NAME[selected.ruolo]}
+              {' '}<span className="badge b-neu">{tierLabel(state.tierDefs, state.tiers[selected.id])}</span>
+              {isTarget && <span className="badge b-occ">★ tuo obiettivo</span>}
+            </p>
+            {tags.length > 0 && <div className="tags">{tags.map(t => <span key={t.id} title={tagDescription(t.id)} className={`badge tag-${t.kind}`}>{t.label}</span>)}</div>}
+            <p className="hint">Prezzo previsto <strong>{pr ? `${pr.min}–${pr.max}` : '≈ 1'}</strong> · Il tuo prezzo <strong>{cap ?? '—'}</strong></p>
+            <p className={`advice-${c.level}`}>
+              <strong>Contesa {c.level}</strong>: {c.why}
+              {c.rivals.length > 0 && <small><br />{c.rivals.map(r => r.reason).join(' · ')}</small>}
+            </p>
+            {last && <p className="advice-bassa">💡 {last.message}</p>}
+            {roleAlert && <p className="advice-alta">⚠ {roleAlert.message}</p>}
+          </section>
+        )
+      })()}
 
       {(() => {
         const myCounts: Record<Role, number> = { P: 0, D: 0, C: 0, A: 0 }

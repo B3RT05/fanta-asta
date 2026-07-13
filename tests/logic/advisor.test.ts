@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { deriveTeams } from '@/logic/auction'
 import { profileTeam } from '@/logic/profiles'
-import { adviseTargets, scarcityAlerts, lastBidderRoles } from '@/logic/advisor'
+import { adviseTargets, scarcityAlerts, lastBidderRoles, contesaFor } from '@/logic/advisor'
 import type { TeamState } from '@/logic/auction'
 import { DEFAULT_LEAGUE, DEFAULT_TIER_DEFS, type Player, type PriceRange, type Role, type TierId } from '@/logic/types'
 
@@ -56,6 +56,18 @@ describe('scarcityAlerts', () => {
     expect(d).toBeDefined()
     expect(d!.remaining).toBe(3)
     expect(d!.myMissing).toBe(8)
+  })
+})
+
+describe('contesaFor', () => {
+  it('valuta la contesa su un giocatore qualsiasi (anche non-target)', () => {
+    const players = [mk(1, 'A')]
+    const tiers: Record<number, TierId> = { 1: 'top' }
+    const prices = new Map<number, PriceRange>([[1, { base: 100, min: 85, max: 115 }]])
+    const s = setup([], players, tiers, prices)
+    const c = contesaFor(players[0], { prices, league: DEFAULT_LEAGUE, teams: s.teams, profiles: s.profiles })
+    expect(c.level).toBe('alta')      // 7 avversari possono contenderlo
+    expect(c.callNow).toBe(false)
   })
 })
 

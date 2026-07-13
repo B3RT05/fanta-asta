@@ -45,31 +45,40 @@ export function adviseTargets(state: {
     if (sold.has(id)) continue
     const pl = byId.get(id)
     if (!pl) continue
-    const minPrice = prices.get(id)?.min ?? 2
-    const rivals: { teamIndex: number; reason: string }[] = []
-    for (const t of teams) {
-      if (t.teamIndex === league.myTeamIndex) continue
-      if (t.slotsLeft[pl.ruolo] <= 0) continue
-      if (t.maxBid < minPrice) continue
-      const prof = profiles[t.teamIndex]
-      const n = t.purchases.length
-      if (n >= PROFILE_MIN_PURCHASES) {
-        if (prof.bigClubPct >= TRAIT_BIG_PCT && !league.bigClubs.includes(pl.squadra)) continue
-        const lowcost = prof.traits.some(tr => tr === `${ROLE_NAMES[pl.ruolo]} low cost`)
-        if (lowcost && minPrice > LOWCOST_PRICE) continue
-      }
-      rivals.push({ teamIndex: t.teamIndex, reason: `${t.name}: ${t.slotsLeft[pl.ruolo]} slot ${pl.ruolo}, max rilancio ${t.maxBid}` })
-    }
-    const level = rivals.length === 0 ? 'bassa' : rivals.length <= 2 ? 'media' : 'alta'
-    const callNow = level !== 'alta'
-    const why = rivals.length === 0
-      ? 'nessun avversario può più contenderlo: chiamalo ora'
-      : callNow
-        ? `solo ${rivals.length} rivali possibili: buon momento per chiamarlo`
-        : `${rivals.length} avversari con slot e crediti: aspetta che si riempiano`
-    out.push({ playerId: id, rivals, level, callNow, why })
+    out.push({ playerId: id, ...contesaFor(pl, { prices, league, teams, profiles }) })
   }
   return out
+}
+
+/** Contesa su UN giocatore qualsiasi: chi può ancora contenderlo, quanto è
+ *  affollato, e se conviene chiamarlo ora o aspettare. */
+export function contesaFor(pl: Player, ctx: {
+  prices: Map<number, PriceRange>; league: LeagueConfig; teams: TeamState[]; profiles: TeamProfile[]
+}): { rivals: { teamIndex: number; reason: string }[]; level: 'bassa' | 'media' | 'alta'; callNow: boolean; why: string } {
+  const { prices, league, teams, profiles } = ctx
+  const minPrice = prices.get(pl.id)?.min ?? 2
+  const rivals: { teamIndex: number; reason: string }[] = []
+  for (const t of teams) {
+    if (t.teamIndex === league.myTeamIndex) continue
+    if (t.slotsLeft[pl.ruolo] <= 0) continue
+    if (t.maxBid < minPrice) continue
+    const prof = profiles[t.teamIndex]
+    const n = t.purchases.length
+    if (n >= PROFILE_MIN_PURCHASES) {
+      if (prof.bigClubPct >= TRAIT_BIG_PCT && !league.bigClubs.includes(pl.squadra)) continue
+      const lowcost = prof.traits.some(tr => tr === `${ROLE_NAMES[pl.ruolo]} low cost`)
+      if (lowcost && minPrice > LOWCOST_PRICE) continue
+    }
+    rivals.push({ teamIndex: t.teamIndex, reason: `${t.name}: ${t.slotsLeft[pl.ruolo]} slot ${pl.ruolo}, max rilancio ${t.maxBid}` })
+  }
+  const level = rivals.length === 0 ? 'bassa' : rivals.length <= 2 ? 'media' : 'alta'
+  const callNow = level !== 'alta'
+  const why = rivals.length === 0
+    ? 'nessun avversario può più contenderlo: chiamalo ora'
+    : callNow
+      ? `solo ${rivals.length} rivali possibili: buon momento per chiamarlo`
+      : `${rivals.length} avversari con slot e crediti: aspetta che si riempiano`
+  return { rivals, level, callNow, why }
 }
 
 export interface ScarcityAlert { role: Role; tier: TierId; remaining: number; myMissing: number; message: string }

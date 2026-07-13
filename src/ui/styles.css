@@ -279,6 +279,9 @@ td button:hover { background: transparent; transform: scale(1.15); }
 .regmeta { display: inline-flex; align-items: center; gap: .35rem; flex-wrap: wrap; font-size: .88rem; color: var(--muted); }
 .regmeta strong { color: var(--text); }
 .myprice-tag { color: var(--gold); font-weight: 700; }
+.called { border: 1px solid var(--primary-line); }
+.called-head { display: flex; align-items: center; flex-wrap: wrap; gap: .4rem; font-size: 1rem; }
+.called .tags { margin: .4rem 0; }
 form p { flex-basis: 100%; margin: .3rem 0 0; }
 
 .myroster { display: grid; grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr)); gap: .6rem; margin-top: .5rem; }
