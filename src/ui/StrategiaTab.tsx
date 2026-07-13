@@ -1,7 +1,8 @@
 import { useContext, useMemo, useState } from 'react'
 import { AppCtx } from './App'
-import { predictPrices } from '@/logic/pricing'
+import { predictPrices, priceExplanation } from '@/logic/pricing'
 import { computeTags } from '@/logic/tags'
+import { meterValues } from '@/logic/meters'
 import { generateStrategyVariants, MAX_SINGLE_PCT, type StrategyVariant } from '@/logic/strategy'
 import { shoppingListText } from '@/logic/exportList'
 import Pitch from './Pitch'
@@ -15,7 +16,10 @@ export default function StrategiaTab() {
   const { state, dispatch } = useContext(AppCtx)
   const prices = useMemo(() => predictPrices(state.players, state.tiers, state.league), [state.players, state.tiers, state.league])
   const tagsMap = useMemo(() => computeTags(state.players), [state.players])
+  const meters = useMemo(() => meterValues(state.players), [state.players])
   const byId = useMemo(() => new Map(state.players.map(p => [p.id, p])), [state.players])
+  const rendLabel = (v?: number | null): 'basso' | 'medio' | 'alto' | undefined =>
+    v == null ? undefined : v < 0.34 ? 'basso' : v < 0.67 ? 'medio' : 'alto'
   const [desc, setDesc] = useState('')
   const [moduleKey, setModuleKey] = useState('auto') // 'auto' o "D-C-A"
   const [variants, setVariants] = useState<StrategyVariant[]>([])
@@ -94,6 +98,7 @@ export default function StrategiaTab() {
                     ))}
                   </div>
                   <p className="hint" style={{ margin: '.2rem 0' }}>Spesa stimata <strong>{v.spesaStimata}</strong>/{budget}</p>
+                  <Pitch players={v.targets.map(id => byId.get(id)).filter((p): p is NonNullable<typeof p> => !!p)} formation={chosenModule} />
                   {paid.map(({ r, names }) => (
                     <p key={r} style={{ margin: '.15rem 0', fontSize: '.85rem' }}>
                       <span className="badge b-neu" style={{ background: ROLE_COLOR[r], color: '#fff' }}>{r}</span>{' '}
@@ -175,7 +180,8 @@ export default function StrategiaTab() {
                         <td>{p.nome} <small className="hint">{p.squadra}</small></td>
                         <td>{p.ruolo}</td>
                         <td><span className="badge b-neu">{tierLabel(state.tierDefs, state.tiers[p.id])}</span></td>
-                        <td>{pr ? `${pr.min}–${pr.max}` : '≈ 1'}</td>
+                        <td className="whyprice" title={priceExplanation(p, state.tiers[p.id], pr, tierLabel(state.tierDefs, state.tiers[p.id]), rendLabel(meters.get(p.id)?.rendimento))}>
+                          {pr ? `${pr.min}–${pr.max}` : '≈ 1'} <span className="whyq" aria-hidden="true">ⓘ</span></td>
                         <td><input type="number" min={0} aria-label={`max ${p.nome}`} style={{ width: '5rem' }}
                           value={cap || ''} placeholder="—"
                           onChange={e => dispatch({ type: 'setTargetCap', playerId: p.id, cap: Number(e.target.value) })} />

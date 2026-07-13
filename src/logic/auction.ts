@@ -26,6 +26,34 @@ export function canFieldFormation(bought: Record<Role, number>): boolean {
   return false
 }
 
+export interface RoleCompare { role: Role; mySpent: number; myCount: number; avgSpent: number; avgCount: number }
+
+/** Confronto reparto per reparto: la MIA rosa vs la media della lega
+ *  (spesa e numero di giocatori presi per ruolo). */
+export function rosterCompare(teams: TeamState[], players: Player[], league: LeagueConfig): RoleCompare[] {
+  const byId = new Map(players.map(p => [p.id, p]))
+  const roles: Role[] = ['P', 'D', 'C', 'A']
+  const spentByTeamRole = teams.map(() => ({ P: 0, D: 0, C: 0, A: 0 } as Record<Role, number>))
+  const countByTeamRole = teams.map(() => ({ P: 0, D: 0, C: 0, A: 0 } as Record<Role, number>))
+  teams.forEach((t, i) => {
+    for (const pu of t.purchases) {
+      const role = byId.get(pu.playerId)?.ruolo
+      if (!role) continue
+      spentByTeamRole[i][role] += pu.price
+      countByTeamRole[i][role] += 1
+    }
+  })
+  const n = teams.length || 1
+  const me = league.myTeamIndex
+  return roles.map(role => ({
+    role,
+    mySpent: spentByTeamRole[me]?.[role] ?? 0,
+    myCount: countByTeamRole[me]?.[role] ?? 0,
+    avgSpent: Math.round(spentByTeamRole.reduce((s, r) => s + r[role], 0) / n),
+    avgCount: Math.round((countByTeamRole.reduce((s, r) => s + r[role], 0) / n) * 10) / 10,
+  }))
+}
+
 export function deriveTeams(purchases: Purchase[], league: LeagueConfig, players: Player[]): TeamState[] {
   const byId = new Map(players.map(p => [p.id, p]))
   return league.teams.map((name, teamIndex) => {

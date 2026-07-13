@@ -455,6 +455,20 @@ details[open] summary { color: var(--text); }
 .strat-card h3 { margin: 0; font-size: 1.05rem; }
 .strat-card .plan-bar { height: 1.4rem; margin-bottom: .4rem; }
 .strat-card > div:last-child { margin-top: auto; }
+/* mini-campetto compatto dentro le card di proposta */
+.strat-card .pitch { padding: .4rem; margin: .3rem 0; gap: .25rem; }
+.strat-card .pitch .pitch-player { font-size: .6rem; }
+.strat-card .pitch .pn { max-width: 4rem; }
+.strat-card .pitch-formation { font-size: .7rem; }
+
+/* "Perché questo prezzo?" — cella prezzo con tooltip */
+.whyprice { cursor: help; white-space: nowrap; }
+.whyprice .whyq { opacity: .45; font-size: .8em; }
+.whyprice:hover .whyq { opacity: .9; }
+
+/* confronto rosa vs media lega */
+table.compare { margin-top: .6rem; }
+table.compare td, table.compare th { padding: .25rem .5rem; text-align: left; }
 
 /* nome giocatore cliccabile (apre la scheda) */
 button.link {

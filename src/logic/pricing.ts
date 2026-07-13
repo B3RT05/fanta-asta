@@ -6,6 +6,24 @@ export const TIER_MULT: Record<string, number> = { top: 1.15, semitop: 1.05, sco
 export const SPREAD = 0.15
 export const SPREAD_SCOMMESSA = 0.30
 
+const ROLE_LONG: Record<Role, string> = { P: 'portieri', D: 'difensori', C: 'centrocampo', A: 'attacco' }
+
+/** Spiega COME nasce il prezzo previsto di un giocatore (fascia + FVM + ruolo,
+ *  più il rendimento se disponibile). Usato nei tooltip "Perché questo prezzo?". */
+export function priceExplanation(
+  p: Player, tier: TierId, pr: PriceRange | undefined, fasciaLabel?: string, rendimento?: 'basso' | 'medio' | 'alto',
+): string {
+  const mult = TIER_MULT[tier] ?? 1
+  const fascia = fasciaLabel ?? tier
+  const fasciaTxt = mult > 1 ? `fascia ${fascia} (+${Math.round((mult - 1) * 100)}%)` : mult < 1 ? `fascia ${fascia} (${Math.round((mult - 1) * 100)}%)` : `fascia ${fascia}`
+  const roleTxt = ROLE_INFLATION[p.ruolo] > 1 ? `${ROLE_LONG[p.ruolo]} (reparto caro +${Math.round((ROLE_INFLATION[p.ruolo] - 1) * 100)}%)`
+    : ROLE_INFLATION[p.ruolo] < 1 ? `${ROLE_LONG[p.ruolo]} (reparto economico ${Math.round((ROLE_INFLATION[p.ruolo] - 1) * 100)}%)`
+      : ROLE_LONG[p.ruolo]
+  const range = pr ? `${pr.min}–${pr.max} (base ${pr.base})` : '≈ 1'
+  const rendTxt = rendimento ? ` · rendimento ${rendimento}` : ''
+  return `Prezzo previsto ${range}. Deriva da: FVM ${p.fvm}${rendTxt}, ${fasciaTxt}, ${roleTxt}. Più alto è l'FVM rispetto agli altri del ruolo, più sale.`
+}
+
 export function predictPrices(players: Player[], tiers: Record<number, TierId>, league: LeagueConfig): Map<number, PriceRange> {
   const roles: Role[] = ['P', 'D', 'C', 'A']
   const totalCredits = league.budget * league.teams.length

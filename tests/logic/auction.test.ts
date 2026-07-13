@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { deriveTeams, soldIds, canFieldFormation } from '@/logic/auction'
+import { deriveTeams, soldIds, canFieldFormation, rosterCompare } from '@/logic/auction'
 import { DEFAULT_LEAGUE, type Player } from '@/logic/types'
 
 const mk = (id: number, ruolo: Player['ruolo']): Player =>
@@ -44,5 +44,25 @@ describe('canFieldFormation', () => {
     expect(canFieldFormation({ P: 0, D: 5, C: 5, A: 3 })).toBe(false) // niente portiere
     expect(canFieldFormation({ P: 1, D: 8, C: 1, A: 1 })).toBe(false) // solo 1 centrocampista
     expect(canFieldFormation({ P: 1, D: 2, C: 2, A: 1 })).toBe(false) // troppo pochi outfield
+  })
+})
+
+describe('rosterCompare', () => {
+  it('confronta la mia spesa/numero per reparto con la media della lega', () => {
+    // io (team 0) spendo 200 su un attaccante; il team 1 ne spende 50
+    const purchases = [
+      { playerId: 1, teamIndex: 0, price: 200, seq: 1 },
+      { playerId: 2, teamIndex: 1, price: 50, seq: 2 },
+    ]
+    const league = { ...DEFAULT_LEAGUE, myTeamIndex: 0 }
+    const teams = deriveTeams(purchases, league, players)
+    const cmp = rosterCompare(teams, players, league)
+    const a = cmp.find(x => x.role === 'A')!
+    expect(a.mySpent).toBe(200)
+    expect(a.myCount).toBe(1)
+    // media lega su 8 squadre: (200+50)/8 ≈ 31
+    expect(a.avgSpent).toBe(Math.round(250 / 8))
+    // reparti senza acquisti: tutto a 0
+    expect(cmp.find(x => x.role === 'P')!.mySpent).toBe(0)
   })
 })

@@ -1,6 +1,6 @@
 import { useContext, useMemo, useState } from 'react'
 import { AppCtx } from './App'
-import { deriveTeams, soldIds, canFieldFormation } from '@/logic/auction'
+import { deriveTeams, soldIds, canFieldFormation, rosterCompare } from '@/logic/auction'
 import { profileTeam } from '@/logic/profiles'
 import { adviseTargets, scarcityAlerts, lastBidderRoles, contesaFor, bluffSuggestions } from '@/logic/advisor'
 import { roleInflation } from '@/logic/inflation'
@@ -53,6 +53,7 @@ export default function AstaTab() {
   const inflation = roleInflation(state.purchases, state.players, prices).filter(x => x.level !== 'normale')
   const bluffs = bluffSuggestions({ targets: state.targets, purchases: state.purchases, players: state.players, tiers: state.tiers, prices, league: state.league, teams, profiles })
   const history = [...state.purchases].sort((a, b) => b.seq - a.seq)
+  const compare = rosterCompare(teams, state.players, state.league)
 
   const myTeam = teams[state.league.myTeamIndex]
 
@@ -142,6 +143,25 @@ export default function AstaTab() {
                 </div>
               ))}
             </div>
+            <h3>Confronto con la lega (per reparto)</h3>
+            <table className="compare">
+              <thead><tr><th>Reparto</th><th>La mia spesa</th><th>Media lega</th><th>Presi</th><th>Media</th></tr></thead>
+              <tbody>
+                {compare.map(c => {
+                  const diff = c.mySpent - c.avgSpent
+                  return (
+                    <tr key={c.role} title={diff > 0 ? `spendi ${diff} più della media` : diff < 0 ? `spendi ${-diff} meno della media` : 'in linea con la media'}>
+                      <td>{ROLE_NAME[c.role]}</td>
+                      <td><strong>{c.mySpent}</strong>{' '}
+                        <span className={diff > 0 ? 'badge b-trap' : diff < 0 ? 'badge b-occ' : 'hint'}>{diff > 0 ? `+${diff}` : diff < 0 ? `${diff}` : '='}</span></td>
+                      <td className="hint">{c.avgSpent}</td>
+                      <td>{c.myCount}/{state.league.slots[c.role]}</td>
+                      <td className="hint">{c.avgCount}</td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
           </section>
         )
       })()}

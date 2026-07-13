@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { parseListone } from '@/logic/parseListone'
 import { proposeTiers } from '@/logic/tiering'
-import { predictPrices } from '@/logic/pricing'
+import { predictPrices, priceExplanation } from '@/logic/pricing'
 import { DEFAULT_LEAGUE } from '@/logic/types'
 
 const players = parseListone(new Uint8Array(readFileSync('tests/fixtures/quotazioni.xlsx')))
@@ -30,5 +30,20 @@ describe('predictPrices', () => {
   it('il top attaccante costa piu del top portiere', () => {
     const best = (role: string) => Math.max(...players.filter(p => p.ruolo === role && prices.has(p.id)).map(p => prices.get(p.id)!.max))
     expect(best('A')).toBeGreaterThan(best('P'))
+  })
+  it('priceExplanation cita FVM, fascia, ruolo e il range (e il rendimento se dato)', () => {
+    const p = players.find(x => x.ruolo === 'A')!
+    const txt = priceExplanation(p, tiers[p.id], prices.get(p.id), 'Top', 'alto')
+    expect(txt).toMatch(new RegExp(`FVM ${p.fvm}`))
+    expect(txt).toMatch(/Top/)
+    expect(txt).toMatch(/attacco/)
+    expect(txt).toMatch(/rendimento alto/)
+    expect(txt).toMatch(/base/) // include il range/base
+  })
+  it('priceExplanation funziona anche senza rendimento e senza prezzo', () => {
+    const p = players.find(x => x.ruolo === 'D')!
+    const txt = priceExplanation(p, tiers[p.id], undefined)
+    expect(txt).toMatch(/≈ 1/)
+    expect(txt).not.toMatch(/rendimento/)
   })
 })

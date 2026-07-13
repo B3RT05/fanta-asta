@@ -3,12 +3,15 @@ import { AppCtx } from './App'
 import PlayerModal from './PlayerModal'
 import Meter from './Meter'
 import TeamChip from './TeamChip'
-import { predictPrices } from '@/logic/pricing'
+import { predictPrices, priceExplanation } from '@/logic/pricing'
 import { computeTags, tagsCompatible, tagDescription } from '@/logic/tags'
 import { meterValues } from '@/logic/meters'
 import { matchesQuery } from '@/logic/search'
 import { FM_TITOLARE, PV_SOLIDO, PV_TITOLARE } from '@/logic/tiering'
-import { effectiveCap, type Role, type TierId } from '@/logic/types'
+import { effectiveCap, tierLabel, type Role, type TierId } from '@/logic/types'
+
+const rendLabel = (v?: number | null): 'basso' | 'medio' | 'alto' | undefined =>
+  v == null ? undefined : v < 0.34 ? 'basso' : v < 0.67 ? 'medio' : 'alto'
 
 export default function StudioTab() {
   const { state, dispatch } = useContext(AppCtx)
@@ -189,7 +192,8 @@ export default function StudioTab() {
                 <td><Meter value={meters.get(p.id)?.rendimento ?? null} title={p.stats ? `fantamedia ${p.stats.fm} (nel ruolo)` : undefined} /></td>
                 <td>{p.fvm}</td><td>{p.qtA}</td>
                 <td>{p.stats?.fm ?? '—'}</td><td>{p.stats?.pv ?? '—'}</td>
-                <td>{pr ? `${pr.min}–${pr.max}` : '1'}</td>
+                <td className="whyprice" title={priceExplanation(p, state.tiers[p.id], pr, tierLabel(state.tierDefs, state.tiers[p.id]), rendLabel(meters.get(p.id)?.rendimento))}>
+                  {pr ? `${pr.min}–${pr.max}` : '1'} <span className="whyq" aria-hidden="true">ⓘ</span></td>
                 <td><input type="number" min={0} className="myprice" aria-label={`mio prezzo ${p.nome}`}
                   placeholder="—" value={effectiveCap(state, p.id) ?? ''}
                   onChange={e => dispatch({ type: 'setTargetCap', playerId: p.id, cap: Number(e.target.value) })} /></td>
