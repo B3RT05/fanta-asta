@@ -3,6 +3,7 @@ import { AppCtx } from './App'
 import { predictPrices } from '@/logic/pricing'
 import { computeTags } from '@/logic/tags'
 import { generateStrategy } from '@/logic/strategy'
+import { shoppingListText } from '@/logic/exportList'
 import { tierLabel, type Role } from '@/logic/types'
 
 const ROLE_NAME: Record<Role, string> = { P: 'Portieri', D: 'Difensori', C: 'Centrocampo', A: 'Attacco' }
@@ -77,6 +78,16 @@ export default function StrategiaTab() {
 
       <section>
         <h2>Lista della spesa (obiettivi)</h2>
+        {targets.length > 0 && (() => {
+          const txt = shoppingListText(state, prices)
+          const copia = async () => { try { await navigator.clipboard.writeText(txt); alert('Lista copiata negli appunti!') } catch { alert('Copia non riuscita: seleziona e copia a mano.') } }
+          const scarica = () => {
+            const blob = new Blob([txt], { type: 'text/plain' })
+            const a = document.createElement('a'); a.href = URL.createObjectURL(blob)
+            a.download = `lista-spesa-${new Date().toISOString().slice(0, 10)}.txt`; a.click(); URL.revokeObjectURL(a.href)
+          }
+          return <p><button onClick={copia}>📋 Copia lista</button><button onClick={scarica}>⬇ Scarica .txt</button></p>
+        })()}
         {targets.length === 0
           ? <p className="hint">Nessun obiettivo: metti le stelle ⭐ ai giocatori nello Studio, poi qui decidi quanto sei disposto a pagarli.</p>
           : <>

@@ -70,6 +70,7 @@ export default function StudioTab() {
       case 'qta': return p.qtA
       case 'prezzo': return prices.get(p.id)?.base ?? -1
       case 'mio': return state.targetCaps?.[p.id] ?? -1
+      case 'tag': { const ts = tagsMap.get(p.id) ?? []; return ts.filter(t => t.kind === 'pro').length - ts.filter(t => t.kind === 'malus').length }
       default: return p.fvm
     }
   }
@@ -166,7 +167,8 @@ export default function StudioTab() {
           <th className="sortable" onClick={() => toggleSort('pv')}>Pv{arrow('pv')}</th>
           <th className="sortable" onClick={() => toggleSort('prezzo')}>Prev.{arrow('prezzo')}</th>
           <th className="sortable" onClick={() => toggleSort('mio')} title="Il tuo prezzo previsto / massima spesa per questo giocatore">Mio €{arrow('mio')}</th>
-          <th></th><th>Tag</th>
+          <th></th>
+          <th className="sortable" onClick={() => toggleSort('tag')} title="Ordina per qualità dei tag (pro − malus)">Tag{arrow('tag')}</th>
         </tr></thead>
         <tbody>
           {shown.map(p => {
