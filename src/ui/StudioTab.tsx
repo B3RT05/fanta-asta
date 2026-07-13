@@ -4,7 +4,7 @@ import PlayerModal from './PlayerModal'
 import Meter from './Meter'
 import TeamChip from './TeamChip'
 import { predictPrices } from '@/logic/pricing'
-import { computeTags, tagsCompatible } from '@/logic/tags'
+import { computeTags, tagsCompatible, tagDescription } from '@/logic/tags'
 import { matchesQuery } from '@/logic/search'
 import { FM_TITOLARE, PV_SOLIDO, PV_TITOLARE } from '@/logic/tiering'
 import type { Role, TierId } from '@/logic/types'
@@ -142,7 +142,7 @@ export default function StudioTab() {
         <span className="hint">Sottocategorie (clic per selezionarne più di una){selectedTags.size > 1 ? tagAnd ? ' — stesso ruolo: E (tutti i tag)' : ' — ruoli diversi: O (almeno uno)' : ''}:</span>
         <div className="tags">
           {tagOptions.map(([id, label]) => (
-            <button key={id} aria-label={`tag ${label}`} className={`badge tagpick ${selectedTags.has(id) ? 'on' : ''}`}
+            <button key={id} aria-label={`tag ${label}`} title={tagDescription(id)} className={`badge tagpick ${selectedTags.has(id) ? 'on' : ''}`}
               onClick={() => setSelectedTags(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n })}>{label}</button>
           ))}
           {selectedTags.size > 0 && <button className="link" onClick={() => setSelectedTags(new Set())}>azzera tag</button>}
@@ -191,7 +191,7 @@ export default function StudioTab() {
                     ? <span className="badge b-trap">trappola</span>
                     : <span className="badge b-neu">neutro</span>}</td>
                 <td className="tagcell"><div className="tags">
-                  {(tagsMap.get(p.id) ?? []).map(t => <span key={t.id} className={`badge tag-${t.kind}`}>{t.label}</span>)}
+                  {(tagsMap.get(p.id) ?? []).map(t => <span key={t.id} title={tagDescription(t.id)} className={`badge tag-${t.kind}`}>{t.label}</span>)}
                 </div></td>
               </tr>
             )

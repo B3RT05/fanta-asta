@@ -12,6 +12,33 @@ export const TAG_ROLES: Record<string, Role[]> = {
   bomber: ['A'], cecchino: ['A'], sbagliarigori: ['A'],
 }
 
+// spiegazione di ogni tag (tooltip al passaggio del mouse)
+export const TAG_DESCRIPTIONS: Record<string, string> = {
+  ascesa: 'In ascesa: i quotisti stanno alzando la sua quotazione (Qt.A > Qt.I).',
+  calo: 'In calo: quotazione in discesa rispetto a inizio stagione.',
+  rigorista: 'Rigorista: calcia i rigori della squadra, una macchina da bonus.',
+  indisciplinato: 'Da malus: tanti cartellini, rischio ammonizioni/espulsioni e squalifiche.',
+  panchinaro: 'Poche presenze: gioca poco, difficile da valutare e rischioso.',
+  lusso: 'Costoso ma acerbo: valore di mercato alto ma poche presenze (potenziale trappola).',
+  titolarissimo: 'Titolarissimo: gioca quasi tutte le partite, grande affidabilità.',
+  saracinesca: 'Saracinesca: subisce pochi gol a partita (proxy dei clean sheet).',
+  colabrodo: 'Subisce molto: tanti gol subiti a partita, poco affidabile in porta.',
+  pararigori: 'Para-rigori: bravo a parare i calci di rigore (bonus extra).',
+  dbonus: 'Difensore da bonus: contribuisce con gol e assist, non solo difesa.',
+  modificatore: 'Da modificatore: media voto base alta e costante, aiuta il modificatore difesa.',
+  autogol: 'Autogol: ha segnato autogol la scorsa stagione (malus).',
+  bonusman: 'Bonus-man: centrocampista da tanti gol + assist.',
+  goleador: 'Goleador: centrocampista che segna molto.',
+  assistman: 'Assist-man: tanti assist, meno gol — rifinitore.',
+  bomber: 'Bomber: attaccante da tanti gol, il tuo motore offensivo.',
+  cecchino: 'Cecchino: fantamedia alta con continuità di rendimento.',
+  sbagliarigori: 'Sbaglia rigori: ha fallito più rigori (rischio malus).',
+}
+
+export function tagDescription(id: string): string {
+  return TAG_DESCRIPTIONS[id] ?? ''
+}
+
 /** true se i tag possono coesistere su uno stesso ruolo (→ filtro in AND);
  *  false se appartengono a ruoli disgiunti (→ filtro in OR). */
 export function tagsCompatible(ids: string[]): boolean {

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { computeTags, dominantTags, tagsCompatible } from '@/logic/tags'
+import { computeTags, dominantTags, tagsCompatible, TAG_ROLES, TAG_DESCRIPTIONS } from '@/logic/tags'
 import type { Player, PlayerStats } from '@/logic/types'
 
 const st = (o: Partial<PlayerStats>): PlayerStats =>
@@ -49,6 +49,13 @@ describe('computeTags', () => {
     const map = computeTags([P(10, 'A', undefined, { qtA: 25, qtI: 10 })]) // ascesa, ma no bomber
     expect(has(map.get(10), 'ascesa')).toBe(true)
     expect(has(map.get(10), 'bomber')).toBe(false)
+  })
+})
+
+describe('descrizioni', () => {
+  it('ogni tag ha una descrizione (tooltip)', () => {
+    for (const id of Object.keys(TAG_ROLES))
+      expect((TAG_DESCRIPTIONS[id] ?? '').length).toBeGreaterThan(0)
   })
 })
 

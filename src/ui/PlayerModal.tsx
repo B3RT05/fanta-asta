@@ -1,5 +1,5 @@
 import { tierLabel, type Player, type PlayerStats, type PriceRange, type TierDef, type TierId } from '@/logic/types'
-import type { Tag } from '@/logic/tags'
+import { tagDescription, type Tag } from '@/logic/tags'
 import Meter from './Meter'
 import TeamChip from './TeamChip'
 
@@ -52,7 +52,7 @@ export default function PlayerModal({ player, tierDefs, tier, price, isTarget, t
           <section className="modal-block">
             <h3>Caratteristiche</h3>
             <div className="tags">
-              {tags.map(t => <span key={t.id} className={`badge tag-${t.kind}`}>{t.label}</span>)}
+              {tags.map(t => <span key={t.id} title={tagDescription(t.id)} className={`badge tag-${t.kind}`}>{t.label}</span>)}
             </div>
           </section>
         )}
