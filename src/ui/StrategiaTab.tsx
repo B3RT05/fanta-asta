@@ -2,7 +2,7 @@ import { useContext, useMemo, useState } from 'react'
 import { AppCtx } from './App'
 import { predictPrices } from '@/logic/pricing'
 import { computeTags } from '@/logic/tags'
-import { generateStrategy } from '@/logic/strategy'
+import { generateStrategyVariants, type StrategyVariant } from '@/logic/strategy'
 import { shoppingListText } from '@/logic/exportList'
 import Pitch from './Pitch'
 import { tierLabel, type Role } from '@/logic/types'
@@ -16,12 +16,22 @@ export default function StrategiaTab() {
   const tagsMap = useMemo(() => computeTags(state.players), [state.players])
   const byId = useMemo(() => new Map(state.players.map(p => [p.id, p])), [state.players])
   const [desc, setDesc] = useState('')
+  const [variants, setVariants] = useState<StrategyVariant[]>([])
+  const [seen, setSeen] = useState<Set<number>>(new Set()) // titolari già proposti, per generarne di diversi
 
-  const genera = () => {
-    const s = generateStrategy(desc, state.players, state.tiers, tagsMap, prices, state.league, state.manualCaps ?? {})
-    const kw = s.recognized.length ? `Riconosciuto: ${s.recognized.join(', ')}.` : 'Nessuna parola chiave riconosciuta: genero una bozza equilibrata.'
-    if (window.confirm(`${kw}\n\nGenero la strategia e sovrascrivo budget, obiettivi e note attuali?`))
-      dispatch({ type: 'applyStrategy', rolePlan: s.rolePlan, targets: s.targets, caps: s.caps, notes: s.notes })
+  const proponi = (avoid: Set<number>) => {
+    const vs = generateStrategyVariants(desc, state.players, state.tiers, tagsMap, prices, state.league, state.manualCaps ?? {}, avoid)
+    setVariants(vs)
+    const paid = vs.flatMap(v => v.targets.filter(id => (v.caps[id] ?? 0) > 1))
+    setSeen(prev => new Set([...prev, ...paid]))
+  }
+  const genera = () => { setSeen(new Set()); proponi(new Set()) }        // primo batch: parte pulito
+  const generaDiverse = () => proponi(seen)                              // altre 3: evita quelle già viste
+  const scegli = (v: StrategyVariant) => {
+    if (window.confirm(`Applico «${v.label}» e sovrascrivo budget, obiettivi e note attuali?`)) {
+      dispatch({ type: 'applyStrategy', rolePlan: v.rolePlan, targets: v.targets, caps: v.caps, notes: v.notes })
+      setVariants([])
+    }
   }
 
   const roles: Role[] = ['P', 'D', 'C', 'A']
@@ -44,7 +54,44 @@ export default function StrategiaTab() {
         <input aria-label="Descrizione strategia" style={{ width: '100%', maxWidth: '40rem' }}
           placeholder="es. difesa da modificatore e un top in attacco, portiere low cost, qualche scommessa"
           value={desc} onChange={e => setDesc(e.target.value)} />
-        <div><button className="btn-primary" disabled={state.players.length === 0} onClick={genera}>Genera strategia</button></div>
+        <div style={{ display: 'flex', gap: '.5rem', flexWrap: 'wrap' }}>
+          <button className="btn-primary" disabled={state.players.length === 0} onClick={genera}>Genera 3 strategie</button>
+          {variants.length > 0 && <button disabled={state.players.length === 0} onClick={generaDiverse}>↻ Altre 3 diverse</button>}
+        </div>
+
+        {variants.length > 0 && (
+          <div className="strat-cards">
+            {variants.map(v => {
+              const paid = roles.map(r => ({
+                r, names: v.targets
+                  .filter(id => byId.get(id)?.ruolo === r && (v.caps[id] ?? 0) > 1)
+                  .map(id => `${byId.get(id)!.nome} ${v.caps[id]}`),
+              })).filter(x => x.names.length > 0)
+              return (
+                <div key={v.style} className="strat-card">
+                  <h3>{v.label}</h3>
+                  <p className="hint" style={{ marginTop: 0 }}>{v.sublabel}</p>
+                  <div className="plan-bar" style={{ margin: '.4rem 0' }}>
+                    {roles.map(r => v.rolePlan[r] > 0 && (
+                      <span key={r} title={`${ROLE_NAME[r]}: ${v.rolePlan[r]}`}
+                        style={{ width: `${(v.rolePlan[r] / budget) * 100}%`, background: ROLE_COLOR[r] }}>
+                        {v.rolePlan[r] >= budget * 0.06 ? r : ''}</span>
+                    ))}
+                  </div>
+                  <p className="hint" style={{ margin: '.2rem 0' }}>Spesa stimata <strong>{v.spesaStimata}</strong>/{budget}</p>
+                  {paid.map(({ r, names }) => (
+                    <p key={r} style={{ margin: '.15rem 0', fontSize: '.85rem' }}>
+                      <span className="badge b-neu" style={{ background: ROLE_COLOR[r], color: '#fff' }}>{r}</span>{' '}
+                      {names.join(' · ')}</p>
+                  ))}
+                  <div style={{ marginTop: '.6rem' }}>
+                    <button className="btn-primary" onClick={() => scegli(v)}>Scegli questa</button>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
       </section>
 
       <section>

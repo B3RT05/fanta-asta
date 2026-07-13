@@ -442,6 +442,20 @@ details[open] summary { color: var(--text); }
 }
 .plan-inputs { display: flex; flex-wrap: wrap; gap: .3rem 1rem; }
 
+/* tre proposte di strategia affiancate */
+.strat-cards {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+  gap: .8rem; margin-top: 1rem;
+}
+.strat-card {
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--surface-2); padding: .8rem 1rem;
+  display: flex; flex-direction: column;
+}
+.strat-card h3 { margin: 0; font-size: 1.05rem; }
+.strat-card .plan-bar { height: 1.4rem; margin-bottom: .4rem; }
+.strat-card > div:last-child { margin-top: auto; }
+
 /* nome giocatore cliccabile (apre la scheda) */
 button.link {
   appearance: none; border: 0; background: transparent; margin: 0; padding: 0;

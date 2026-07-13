@@ -10,6 +10,34 @@ export interface GeneratedStrategy {
   recognized: string[]
 }
 
+/** I tre "caratteri" con cui riempire la stessa ripartizione di budget:
+ *  cambiano CHI scegli, non quanto spendi per reparto. */
+export type StrategyStyle = 'stelle' | 'equilibrata' | 'valore'
+
+export interface StrategyVariant extends GeneratedStrategy {
+  style: StrategyStyle
+  label: string
+  sublabel: string
+  spesaStimata: number
+}
+
+interface StyleCfg {
+  label: string
+  sublabel: string
+  /** salta i N titolari più costosi nella selezione (per non prendere sempre il big più caro) */
+  avoidTopN: number
+  /** scommesse extra per reparto */
+  scommBoost: number
+  /** criterio con cui ordinare i candidati titolari */
+  starterKey: 'quality' | 'price' | 'value'
+}
+
+const STYLE_CFG: Record<StrategyStyle, StyleCfg> = {
+  stelle: { label: 'Stelle & sostanza', sublabel: '1-2 big costosi, poi riempi con solidi', avoidTopN: 0, scommBoost: 0, starterKey: 'price' },
+  equilibrata: { label: 'Equilibrata', sublabel: 'qualità diffusa, nessun eccesso', avoidTopN: 0, scommBoost: 0, starterKey: 'quality' },
+  valore: { label: 'Valore & scommesse', sublabel: 'niente super-big, tanti semi-top e scommesse', avoidTopN: 2, scommBoost: 1, starterKey: 'value' },
+}
+
 const ROLE_NAME: Record<Role, string> = { P: 'Portieri', D: 'Difensori', C: 'Centrocampo', A: 'Attacco' }
 const TIER_RANK: Record<string, number> = { top: 5, semitop: 4, titolare: 3, scommessa: 2, riempitivo: 1, skip: 0 }
 
@@ -36,7 +64,10 @@ export function generateStrategy(
   description: string, players: Player[], tiers: Record<number, TierId>,
   tagsMap: Map<number, Tag[]>, prices: Map<number, PriceRange>, league: LeagueConfig,
   userCaps: Record<number, number> = {},
-): GeneratedStrategy {
+  opts: { style?: StrategyStyle; avoid?: Set<number> } = {},
+): StrategyVariant {
+  const cfg = STYLE_CFG[opts.style ?? 'equilibrata']
+  const avoid = opts.avoid ?? new Set<number>()
   const q = normalizeText(description)
   const has = (...ks: string[]) => ks.some(k => q.includes(k))
   const recognized: string[] = []
@@ -74,9 +105,13 @@ export function generateStrategy(
 
   // rosa completa ed equilibrata: riempi TUTTI gli slot di ogni reparto con
   // titolari garantiti + qualche scommessa + riempitivi da 1 credito.
-  const scommPerRole: Record<Role, number> = wantScommesse
+  const baseScomm: Record<Role, number> = wantScommesse
     ? { P: 0, D: 2, C: 2, A: 2 }
     : { P: 0, D: 1, C: 1, A: 1 }
+  const scommPerRole: Record<Role, number> = {
+    P: baseScomm.P, // il portiere di riserva resta un riempitivo, non una scommessa
+    D: baseScomm.D + cfg.scommBoost, C: baseScomm.C + cfg.scommBoost, A: baseScomm.A + cfg.scommBoost,
+  }
   const targets: number[] = []
   const caps: Record<number, number> = {}
   let nStarters = 0, nScomm = 0, nFiller = 0
@@ -109,13 +144,16 @@ export function generateStrategy(
     // credito per ogni altro slot ancora da riempire, così la rosa sta nel budget
     let budgetLeft = rolePlan[role]
     let slotsToFill = slots
+    // passate progressive: prima rispetta club-cap ed evita i giocatori "avoid"
+    // (usati da altre proposte), poi rilassa l'avoid, infine anche il club-cap.
     const take = (sorted: Player[], n: number): Player[] => {
       const picks: Player[] = []
-      for (const relax of [false, true]) {
+      for (const pass of [0, 1, 2]) {
         for (const p of sorted) {
           if (picks.length >= n) break
           if (used.has(p.id)) continue
-          if (!relax && (clubCount.get(p.squadra) ?? 0) >= clubCap) continue
+          if (pass < 1 && avoid.has(p.id)) continue // evita i giocatori già proposti altrove
+          if (pass < 2 && (clubCount.get(p.squadra) ?? 0) >= clubCap) continue
           if (budgetLeft - cost(p) < slotsToFill - 1) continue // non affordabile lasciando 1 agli altri slot
           picks.push(p); used.add(p.id)
           clubCount.set(p.squadra, (clubCount.get(p.squadra) ?? 0) + 1)
@@ -126,24 +164,34 @@ export function generateStrategy(
       return picks
     }
 
-    // 1) titolari garantiti (i migliori affordabili, diversificando i club)
-    const byQuality = [...pool].sort((a, b) => (m(b.id).rank + m(b.id).tagBonus) - (m(a.id).rank + m(a.id).tagBonus) || m(b.id).fvm - m(a.id).fvm)
+    // 1) titolari garantiti — l'ORDINE dei candidati dipende dallo stile:
+    //    quality = i più forti · price = i più costosi (star) · value = miglior fvm per credito.
+    const qualityCmp = (a: Player, b: Player) => (m(b.id).rank + m(b.id).tagBonus) - (m(a.id).rank + m(a.id).tagBonus) || m(b.id).fvm - m(a.id).fvm
+    const value = (id: number) => m(id).fvm / Math.max(1, m(id).price)
+    const styleCmp = (a: Player, b: Player) =>
+      cfg.starterKey === 'price' ? (m(b.id).price - m(a.id).price || qualityCmp(a, b))
+        : cfg.starterKey === 'value' ? (value(b.id) - value(a.id) || qualityCmp(a, b))
+          : qualityCmp(a, b)
+    const byQuality = [...pool].sort(styleCmp)
+    // salta i N più costosi in assoluto (per non prendere sempre il big più caro)
+    const drop = new Set(cfg.avoidTopN > 0 ? [...pool].sort((a, b) => m(b.id).price - m(a.id).price).slice(0, cfg.avoidTopN).map(p => p.id) : [])
+    const cand = byQuality.filter(p => !drop.has(p.id))
     const starterQ = Math.min(STARTERS[role], slots)
     let starters: Player[]
     if (role === 'D') {
       const modifQ = Math.min(3, starterQ)
-      const byModif = [...pool].sort((a, b) => m(b.id).mv - m(a.id).mv || (m(b.id).rank - m(a.id).rank) || m(b.id).fvm - m(a.id).fvm)
+      const byModif = cand.slice().sort((a, b) => m(b.id).mv - m(a.id).mv || (m(b.id).rank - m(a.id).rank) || m(b.id).fvm - m(a.id).fvm)
       const modif = take(byModif, modifQ)
-      const byBonus = pool.filter(p => !used.has(p.id)).sort((a, b) => m(b.id).bonusVal - m(a.id).bonusVal || (m(b.id).rank - m(a.id).rank) || m(b.id).fvm - m(a.id).fvm)
+      const byBonus = cand.filter(p => !used.has(p.id)).sort((a, b) => m(b.id).bonusVal - m(a.id).bonusVal || (m(b.id).rank - m(a.id).rank) || m(b.id).fvm - m(a.id).fvm)
       const bonus = take(byBonus, starterQ - modif.length)
       starters = [...modif, ...bonus]
     } else {
-      starters = take(byQuality, starterQ)
+      starters = take(cand, starterQ)
     }
 
     // 2) scommesse: fascia scommessa/in ascesa, cercate nelle PICCOLE squadre
     const scommQ = Math.min(scommPerRole[role], slots - starters.length)
-    const scommSorted = byQuality.filter(p => !used.has(p.id))
+    const scommSorted = cand.filter(p => !used.has(p.id))
       .sort((a, b) =>
         (Number(m(b.id).isScomm) - Number(m(a.id).isScomm)) ||
         (Number(!big.has(b.squadra)) - Number(!big.has(a.squadra))) ||
@@ -167,7 +215,7 @@ export function generateStrategy(
   const pct = (r: Role) => Math.round(100 * rolePlan[r] / league.budget)
   const slotsTot = roles.reduce((s, r) => s + league.slots[r], 0)
   const notes = [
-    `Strategia generata${recognized.length ? ' (riconosciuto: ' + recognized.join(', ') + ')' : ''}.`,
+    `Strategia «${cfg.label}» (${cfg.sublabel})${recognized.length ? ' — riconosciuto: ' + recognized.join(', ') : ''}.`,
     '',
     'Ripartizione budget:',
     ...roles.map(r => `  ${ROLE_NAME[r]}: ${rolePlan[r]} crediti (${pct(r)}%)`),
@@ -178,5 +226,27 @@ export function generateStrategy(
     'Nella lista della spesa trovi tutti gli slot col prezzo reale. Ritocca a mano: è una bozza di partenza.',
   ].join('\n')
 
-  return { rolePlan, targets, caps, notes, recognized }
+  return { rolePlan, targets, caps, notes, recognized, style: opts.style ?? 'equilibrata', label: cfg.label, sublabel: cfg.sublabel, spesaStimata: capTotal }
+}
+
+/** Genera TRE proposte con caratteri diversi (stelle / equilibrata / valore)
+ *  a partire dalla stessa descrizione. Le tre non sono cloni: ogni variante
+ *  evita (quando può) i titolari "pagati" già scelti dalle precedenti, e si
+ *  può passare un insieme `avoid` iniziale per ottenere un batch tutto nuovo
+ *  ("generane di diverse"). */
+export function generateStrategyVariants(
+  description: string, players: Player[], tiers: Record<number, TierId>,
+  tagsMap: Map<number, Tag[]>, prices: Map<number, PriceRange>, league: LeagueConfig,
+  userCaps: Record<number, number> = {}, avoidInitial: Iterable<number> = [],
+): StrategyVariant[] {
+  const styles: StrategyStyle[] = ['stelle', 'equilibrata', 'valore']
+  const avoid = new Set<number>(avoidInitial)
+  const out: StrategyVariant[] = []
+  for (const style of styles) {
+    const v = generateStrategy(description, players, tiers, tagsMap, prices, league, userCaps, { style, avoid })
+    out.push(v)
+    // i titolari "pagati" (tetto > 1) di questa variante vengono evitati (soft) dalle successive
+    for (const id of v.targets) if ((v.caps[id] ?? 0) > 1) avoid.add(id)
+  }
+  return out
 }

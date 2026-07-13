@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { generateStrategy } from '@/logic/strategy'
+import { generateStrategy, generateStrategyVariants } from '@/logic/strategy'
 import { computeTags } from '@/logic/tags'
 import { predictPrices } from '@/logic/pricing'
 import { DEFAULT_LEAGUE, type Player, type PlayerStats, type PriceRange, type TierId } from '@/logic/types'
@@ -124,6 +124,45 @@ describe('generateStrategy', () => {
     // i due difensori da bonus, pur avendo FVM basso, sono titolari (tetto = prezzo reale > 1) grazie al mix
     expect(s.caps[90]).toBeGreaterThan(1)
     expect(s.caps[91]).toBeGreaterThan(1)
+  })
+  // pool di attaccanti di CLUB DISTINTI (così il club-cap non forza un solo titolare)
+  // con prezzi decrescenti col talento: id 500 il più forte e caro.
+  const CLUBS = ['Inter', 'Roma', 'Como', 'Napoli', 'Milan', 'Juventus', 'Lazio', 'Atalanta']
+  const attk: Player[] = Array.from({ length: 8 }, (_, i) =>
+    P(500 + i, 'A', 220 - i * 22, st({ gf: 22 - i * 2, fm: 7, pv: 32 })))
+  attk.forEach((p, i) => { p.squadra = CLUBS[i] })
+  const attTiers: Record<number, TierId> = {}; for (const p of attk) attTiers[p.id] = p.fvm > 120 ? 'top' : p.fvm > 60 ? 'semitop' : 'titolare'
+  const attPrices = new Map(attk.map((p, i) => [p.id, { base: 200 - i * 24, min: 180 - i * 24, max: 220 - i * 24 }]))
+  const attTags = computeTags(attk)
+
+  it('genera tre proposte con caratteri diversi (stelle/equilibrata/valore)', () => {
+    const vs = generateStrategyVariants('attacco', attk, attTiers, attTags, attPrices, DEFAULT_LEAGUE)
+    expect(vs.map(v => v.style)).toEqual(['stelle', 'equilibrata', 'valore'])
+    for (const v of vs) {
+      expect(v.label.length).toBeGreaterThan(0)
+      expect(v.targets.length).toBeGreaterThan(0)
+      const tot = v.rolePlan.P + v.rolePlan.D + v.rolePlan.C + v.rolePlan.A
+      expect(tot).toBe(DEFAULT_LEAGUE.budget)
+    }
+    // le tre non sono cloni: l'insieme degli attaccanti "pagati" (tetto>1) non è identico
+    const paidA = (v: typeof vs[number]) =>
+      v.targets.filter(id => (v.caps[id] ?? 0) > 1).filter(id => id >= 500).sort().join(',')
+    expect(new Set(vs.map(paidA)).size).toBeGreaterThan(1)
+  })
+  it('lo stile "valore" non prende il big più costoso; "stelle" sì', () => {
+    const vs = generateStrategyVariants('attacco', attk, attTiers, attTags, attPrices, DEFAULT_LEAGUE)
+    const paid = (style: string, id: number) => (vs.find(v => v.style === style)!.caps[id] ?? 0) > 1
+    expect(paid('stelle', 500)).toBe(true)   // le "stelle" comprano il big più caro (id 500)
+    expect(paid('valore', 500)).toBe(false)  // il "valore" lo evita
+  })
+  it('"generane di diverse": passando gli id già visti, cambia le scelte pagate', () => {
+    const first = generateStrategyVariants('attacco', attk, attTiers, attTags, attPrices, DEFAULT_LEAGUE)
+    const paidIds = (batch: typeof first) => new Set(batch.flatMap(v => v.targets.filter(id => (v.caps[id] ?? 0) > 1)))
+    const seen = paidIds(first)
+    const second = generateStrategyVariants('attacco', attk, attTiers, attTags, attPrices, DEFAULT_LEAGUE, {}, seen)
+    const b = paidIds(second)
+    // il secondo batch introduce giocatori pagati non presenti nel primo
+    expect([...b].some(id => !seen.has(id))).toBe(true)
   })
   it('"tante scommesse" aumenta il numero di scommesse in rosa', () => {
     const base = generateStrategy('', players, tiers, tagsMap, prices, DEFAULT_LEAGUE)
