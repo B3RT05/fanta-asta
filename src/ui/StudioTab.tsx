@@ -1,6 +1,7 @@
 import { useContext, useMemo, useState } from 'react'
 import { AppCtx } from './App'
 import PlayerModal from './PlayerModal'
+import Meter from './Meter'
 import { predictPrices } from '@/logic/pricing'
 import { computeTags } from '@/logic/tags'
 import { matchesQuery } from '@/logic/search'
@@ -43,6 +44,10 @@ export default function StudioTab() {
 
   const planTotal = (Object.values(state.rolePlan) as number[]).reduce((a, b) => a + b, 0)
 
+  // indicatori visivi (0..1) dai dati che abbiamo
+  const titolarita = (p: typeof shown[0]) => p.stats ? Math.min(1, p.stats.pv / 34) : null
+  const rendimento = (p: typeof shown[0]) => p.stats ? Math.max(0, Math.min(1, (p.stats.fm - 5) / 2.2)) : null
+
   return (
     <main>
       <section>
@@ -83,22 +88,25 @@ export default function StudioTab() {
         </select></label>
       </section>
 
-      <table>
-        <thead><tr><th></th><th>Nome</th><th>Squadra</th><th>R</th><th>Fascia</th><th>FVM</th><th>Qt.A</th><th>Fm</th><th>Pv</th><th>Prev.</th><th></th><th>Tag</th></tr></thead>
+      <div className="tablescroll">
+      <table className="studio-table">
+        <thead><tr><th></th><th>Nome</th><th>Squadra</th><th>R</th><th>Fascia</th><th>Titolarità</th><th>Rendim.</th><th>FVM</th><th>Qt.A</th><th>Fm</th><th>Pv</th><th>Prev.</th><th></th><th>Tag</th></tr></thead>
         <tbody>
           {shown.map(p => {
             const pr = prices.get(p.id)
             return (
               <tr key={p.id}>
-                <td><button aria-label={`target ${p.nome}`} onClick={() => dispatch({ type: 'toggleTarget', playerId: p.id })}>
+                <td><button className="star" aria-label={`target ${p.nome}`} onClick={() => dispatch({ type: 'toggleTarget', playerId: p.id })}>
                   {state.targets.includes(p.id) ? '★' : '☆'}</button></td>
                 <td><button className="link" onClick={() => setDetailId(p.id)}>{p.nome}</button>{review.has(p.id) ? <span aria-hidden="true"> ⚠</span> : null}</td>
-                <td>{p.squadra}</td>
-                <td>{p.ruolo}</td>
+                <td className="muted">{p.squadra}</td>
+                <td><span className={`rolebadge r-${p.ruolo}`}>{p.ruolo}</span></td>
                 <td><select aria-label="Fascia" value={state.tiers[p.id]}
                   onChange={e => dispatch({ type: 'setTier', playerId: p.id, tier: e.target.value as TierId })}>
                   {state.tierDefs.map(d => <option key={d.id} value={d.id}>{d.label}</option>)}
                 </select></td>
+                <td><Meter value={titolarita(p)} title={p.stats ? `${p.stats.pv} presenze` : undefined} /></td>
+                <td><Meter value={rendimento(p)} title={p.stats ? `fantamedia ${p.stats.fm}` : undefined} /></td>
                 <td>{p.fvm}</td><td>{p.qtA}</td>
                 <td>{p.stats?.fm ?? '—'}</td><td>{p.stats?.pv ?? '—'}</td>
                 <td>{pr ? `${pr.min}–${pr.max}` : '1'}</td>
@@ -115,6 +123,7 @@ export default function StudioTab() {
           })}
         </tbody>
       </table>
+      </div>
 
       {detailId !== null && (() => {
         const p = state.players.find(pl => pl.id === detailId)

@@ -1,5 +1,6 @@
 import { tierLabel, type Player, type PlayerStats, type PriceRange, type TierDef, type TierId } from '@/logic/types'
 import type { Tag } from '@/logic/tags'
+import Meter from './Meter'
 
 const ROLE_LABEL: Record<string, string> = { P: 'Portiere', D: 'Difensore', C: 'Centrocampista', A: 'Attaccante' }
 
@@ -52,6 +53,16 @@ export default function PlayerModal({ player, tierDefs, tier, price, isTarget, t
             <div className="tags">
               {tags.map(t => <span key={t.id} className={`badge tag-${t.kind}`}>{t.label}</span>)}
             </div>
+          </section>
+        )}
+
+        {p.stats && (
+          <section className="modal-block">
+            <h3>Indicatori</h3>
+            <dl className="kvgrid">
+              <Row k="Titolarità" v={<Meter value={Math.min(1, p.stats.pv / 34)} title={`${p.stats.pv} presenze`} />} />
+              <Row k="Rendimento" v={<Meter value={Math.max(0, Math.min(1, (p.stats.fm - 5) / 2.2))} title={`fantamedia ${p.stats.fm}`} />} />
+            </dl>
           </section>
         )}
 

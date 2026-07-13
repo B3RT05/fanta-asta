@@ -255,6 +255,31 @@ td button:hover { background: transparent; transform: scale(1.15); }
 .tag-risk  { background: var(--amber-soft); color: var(--amber); border-color: color-mix(in srgb, var(--amber) 40%, transparent); }
 .tagcell { white-space: normal; min-width: 12rem; max-width: 20rem; }
 
+/* ---------------- Indicatori visivi (barrette) ---------------- */
+.tablescroll { overflow-x: auto; border-radius: var(--radius-sm); }
+.studio-table { min-width: 900px; }
+.studio-table td.muted { color: var(--muted); }
+.meter { display: inline-flex; gap: 2px; vertical-align: middle; }
+.meter i { width: 6px; height: 13px; border-radius: 2px; background: var(--surface-3); display: inline-block; }
+.meter-hi i.on  { background: var(--primary); }
+.meter-mid i.on { background: var(--amber); }
+.meter-lo i.on  { background: var(--danger); }
+.meter-empty { color: var(--faint); }
+
+/* badge ruolo colorato */
+.rolebadge {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 1.5rem; height: 1.5rem; border-radius: 6px;
+  font-size: .72rem; font-weight: 800; color: #06170d;
+}
+.rolebadge.r-P { background: var(--gold); }
+.rolebadge.r-D { background: var(--teal); }
+.rolebadge.r-C { background: var(--purple); color: #fff; }
+.rolebadge.r-A { background: var(--primary); }
+
+/* stella target più evidente */
+td .star { color: var(--gold); font-size: 1.1rem; }
+
 /* ---------------- Tier board (drag & drop) ---------------- */
 .tierboard {
   display: grid; grid-auto-flow: column; grid-auto-columns: minmax(11.5rem, 1fr);
