@@ -68,7 +68,17 @@ describe('reducer', () => {
     s = reducer(s, { type: 'setStrategyNotes', notes: 'Piano A: difesa modificatore' })
     expect(s.strategyNotes).toBe('Piano A: difesa modificatore')
     s = reducer(s, { type: 'setTargetCap', playerId: 5, cap: 42 })
-    expect(s.targetCaps[5]).toBe(42)
+    expect(s.manualCaps[5]).toBe(42) // il prezzo digitato va nei tetti manuali
+  })
+  it('rigenerando, i prezzi manuali sopravvivono e i tetti generati si sostituiscono', () => {
+    let s = initialState()
+    s = reducer(s, { type: 'setTargetCap', playerId: 1, cap: 55 })          // prezzo manuale
+    s = reducer(s, { type: 'applyStrategy', rolePlan: { P: 0, D: 0, C: 0, A: 500 }, targets: [1, 2], caps: { 1: 10, 2: 20 }, notes: 'x' })
+    expect(s.manualCaps[1]).toBe(55)   // manuale intatto
+    expect(s.targetCaps[2]).toBe(20)   // generato
+    s = reducer(s, { type: 'applyStrategy', rolePlan: { P: 0, D: 0, C: 0, A: 500 }, targets: [3], caps: { 3: 7 }, notes: 'y' })
+    expect(s.targetCaps).toEqual({ 3: 7 }) // sostituiti (non fusi -> niente auto-alimentazione)
+    expect(s.manualCaps[1]).toBe(55)   // manuale ancora intatto
   })
   it('applyStrategy sovrascrive piano, obiettivi, tetti e note', () => {
     let s = initialState()

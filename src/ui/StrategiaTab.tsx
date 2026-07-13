@@ -18,7 +18,7 @@ export default function StrategiaTab() {
   const [desc, setDesc] = useState('')
 
   const genera = () => {
-    const s = generateStrategy(desc, state.players, state.tiers, tagsMap, prices, state.league, state.targetCaps ?? {})
+    const s = generateStrategy(desc, state.players, state.tiers, tagsMap, prices, state.league, state.manualCaps ?? {})
     const kw = s.recognized.length ? `Riconosciuto: ${s.recognized.join(', ')}.` : 'Nessuna parola chiave riconosciuta: genero una bozza equilibrata.'
     if (window.confirm(`${kw}\n\nGenero la strategia e sovrascrivo budget, obiettivi e note attuali?`))
       dispatch({ type: 'applyStrategy', rolePlan: s.rolePlan, targets: s.targets, caps: s.caps, notes: s.notes })
@@ -28,7 +28,7 @@ export default function StrategiaTab() {
   const plan = state.rolePlan
   const planTotal = roles.reduce((s, r) => s + (plan[r] || 0), 0)
   const budget = state.league.budget
-  const caps = state.targetCaps ?? {}
+  const caps: Record<number, number> = { ...(state.targetCaps ?? {}), ...(state.manualCaps ?? {}) } // manuali prevalgono
 
   // obiettivi (stelle) raggruppati per ruolo
   const targets = state.targets.map(id => byId.get(id)).filter((p): p is NonNullable<typeof p> => !!p)

@@ -10,7 +10,7 @@ import { downloadBackup } from './backup'
 import Meter from './Meter'
 import TeamChip from './TeamChip'
 import Pitch from './Pitch'
-import { tierLabel, type Role } from '@/logic/types'
+import { effectiveCap, tierLabel, type Role } from '@/logic/types'
 
 const ROLE_NAME: Record<Role, string> = { P: 'Portieri', D: 'Difensori', C: 'Centrocampo', A: 'Attacco' }
 
@@ -73,7 +73,7 @@ export default function AstaTab() {
           <button type="submit" disabled={!selected}>Registra</button>
           {selected && (() => {
             const pr = prices.get(selected.id)
-            const cap = state.targetCaps?.[selected.id]
+            const cap = effectiveCap(state, selected.id)
             return <span className="regmeta">
               <TeamChip team={selected.squadra} /> {selected.ruolo}
               {' '}<Meter value={meters.get(selected.id)?.titolarita ?? null} title="titolarità" /> <Meter value={meters.get(selected.id)?.rendimento ?? null} title="rendimento (nel ruolo)" />
@@ -81,8 +81,8 @@ export default function AstaTab() {
               {cap ? <> · <span className="myprice-tag">Mio € {cap}</span></> : null}
             </span>
           })()}
-          {selected && state.targetCaps?.[selected.id] != null && price > state.targetCaps[selected.id] &&
-            <p className="advice-media">⚠ stai superando il tuo prezzo ({state.targetCaps[selected.id]}) per {selected.nome}</p>}
+          {selected && effectiveCap(state, selected.id) != null && price > effectiveCap(state, selected.id)! &&
+            <p className="advice-media">⚠ stai superando il tuo prezzo ({effectiveCap(state, selected.id)}) per {selected.nome}</p>}
           {warning && <p className="error">{warning}</p>}
         </form>
       </section>
@@ -90,7 +90,7 @@ export default function AstaTab() {
       {selected && (() => {
         const c = contesaFor(selected, { prices, league: state.league, teams, profiles })
         const pr = prices.get(selected.id)
-        const cap = state.targetCaps?.[selected.id]
+        const cap = effectiveCap(state, selected.id)
         const tags = tagsMap.get(selected.id) ?? []
         const isTarget = state.targets.includes(selected.id)
         const roleAlert = alerts.find(a => a.role === selected.ruolo)

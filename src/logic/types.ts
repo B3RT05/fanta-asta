@@ -65,7 +65,13 @@ export interface AppState {
   purchases: Purchase[]
   teamNotes: Record<number, string> // note pre-asta per teamIndex
   strategyNotes: string            // piano d'asta a testo libero
-  targetCaps: Record<number, number> // tetto di spesa personale per obiettivo (playerId)
+  targetCaps: Record<number, number> // tetti GENERATI dalla strategia (playerId -> prezzo)
+  manualCaps: Record<number, number> // prezzi impostati A MANO dall'utente (hanno priorità)
+}
+
+/** Prezzo effettivo per un giocatore: manuale se impostato, altrimenti generato. */
+export function effectiveCap(state: AppState, id: number): number | undefined {
+  return state.manualCaps?.[id] ?? state.targetCaps?.[id]
 }
 
 export const DEFAULT_LEAGUE: LeagueConfig = {

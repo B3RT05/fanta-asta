@@ -6,7 +6,7 @@ const ROLE_NAME: Record<Role, string> = { P: 'PORTIERI', D: 'DIFENSORI', C: 'CEN
  *  copiare/condividere o salvare come .txt. */
 export function shoppingListText(state: AppState, prices: Map<number, PriceRange>): string {
   const byId = new Map(state.players.map(p => [p.id, p]))
-  const caps = state.targetCaps ?? {}
+  const caps: Record<number, number> = { ...(state.targetCaps ?? {}), ...(state.manualCaps ?? {}) }
   const targets = state.targets.map(id => byId.get(id)).filter((p): p is NonNullable<typeof p> => !!p)
   const lines: string[] = ['LISTA DELLA SPESA — Fanta Asta']
 

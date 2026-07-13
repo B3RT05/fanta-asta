@@ -17,6 +17,7 @@ export function initialState(): AppState {
     teamNotes: {},
     strategyNotes: '',
     targetCaps: {},
+    manualCaps: {},
   }
 }
 

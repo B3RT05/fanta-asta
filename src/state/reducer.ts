@@ -62,10 +62,13 @@ export function reducer(state: AppState, action: Action): AppState {
     case 'setStrategyNotes':
       return { ...state, strategyNotes: action.notes }
     case 'setTargetCap':
-      return { ...state, targetCaps: { ...(state.targetCaps ?? {}), [action.playerId]: action.cap } }
+      // il prezzo digitato dall'utente va nei tetti MANUALI (hanno priorità e
+      // non vengono sovrascritti dalla rigenerazione)
+      return { ...state, manualCaps: { ...(state.manualCaps ?? {}), [action.playerId]: action.cap } }
     case 'applyStrategy':
-      // unisce i tetti: conserva i prezzi che l'utente aveva già impostato
-      return { ...state, rolePlan: action.rolePlan, targets: action.targets, targetCaps: { ...(state.targetCaps ?? {}), ...action.caps }, strategyNotes: action.notes }
+      // sostituisce i tetti GENERATI (fresco a ogni rigenerazione); i prezzi
+      // manuali (manualCaps) restano intatti e prevalgono nel display/generatore
+      return { ...state, rolePlan: action.rolePlan, targets: action.targets, targetCaps: action.caps, strategyNotes: action.notes }
     case 'recomputeTiers': {
       const { tiers, review } = proposeTiers(state.players)
       return { ...state, tiers, review }

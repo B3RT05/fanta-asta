@@ -8,7 +8,7 @@ import { computeTags, tagsCompatible, tagDescription } from '@/logic/tags'
 import { meterValues } from '@/logic/meters'
 import { matchesQuery } from '@/logic/search'
 import { FM_TITOLARE, PV_SOLIDO, PV_TITOLARE } from '@/logic/tiering'
-import type { Role, TierId } from '@/logic/types'
+import { effectiveCap, type Role, type TierId } from '@/logic/types'
 
 export default function StudioTab() {
   const { state, dispatch } = useContext(AppCtx)
@@ -71,7 +71,7 @@ export default function StudioTab() {
       case 'rendimento': case 'fm': return p.stats?.fm ?? -1
       case 'qta': return p.qtA
       case 'prezzo': return prices.get(p.id)?.base ?? -1
-      case 'mio': return state.targetCaps?.[p.id] ?? -1
+      case 'mio': return effectiveCap(state, p.id) ?? -1
       case 'tag': { const ts = tagsMap.get(p.id) ?? []; return ts.filter(t => t.kind === 'pro').length - ts.filter(t => t.kind === 'malus').length }
       default: return p.fvm
     }
@@ -191,7 +191,7 @@ export default function StudioTab() {
                 <td>{p.stats?.fm ?? '—'}</td><td>{p.stats?.pv ?? '—'}</td>
                 <td>{pr ? `${pr.min}–${pr.max}` : '1'}</td>
                 <td><input type="number" min={0} className="myprice" aria-label={`mio prezzo ${p.nome}`}
-                  placeholder="—" value={state.targetCaps?.[p.id] ?? ''}
+                  placeholder="—" value={effectiveCap(state, p.id) ?? ''}
                   onChange={e => dispatch({ type: 'setTargetCap', playerId: p.id, cap: Number(e.target.value) })} /></td>
                 <td>{isOccasione(p)
                   ? <span className="badge b-occ">occasione</span>
@@ -210,7 +210,7 @@ export default function StudioTab() {
         if (!p) return null
         return <PlayerModal player={p} tierDefs={state.tierDefs} tier={state.tiers[p.id]}
           price={prices.get(p.id)} isTarget={state.targets.includes(p.id)} tags={tagsMap.get(p.id) ?? []}
-          myPrice={state.targetCaps?.[p.id]} meter={meters.get(p.id)} onClose={() => setDetailId(null)} />
+          myPrice={effectiveCap(state, p.id)} meter={meters.get(p.id)} onClose={() => setDetailId(null)} />
       })()}
     </main>
   )
