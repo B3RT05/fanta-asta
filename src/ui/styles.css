@@ -266,6 +266,10 @@ td button:hover { background: transparent; transform: scale(1.15); }
 .meter-lo i.on  { background: var(--danger); }
 .meter-empty { color: var(--faint); }
 
+/* intestazioni ordinabili */
+th.sortable { cursor: pointer; user-select: none; white-space: nowrap; }
+th.sortable:hover { color: var(--text); background: color-mix(in srgb, var(--primary) 12%, var(--surface-3)); }
+
 /* chip squadra (colori del club) */
 .teamchip {
   display: inline-block; padding: .12rem .4rem; border-radius: 5px;

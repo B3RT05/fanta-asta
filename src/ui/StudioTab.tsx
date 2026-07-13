@@ -16,27 +16,64 @@ export default function StudioTab() {
   const [q, setQ] = useState('')
   const [onlyReview, setOnlyReview] = useState(false)
   const [tagFilter, setTagFilter] = useState('tutte')
+  const [teamFilter, setTeamFilter] = useState('tutte')
+  const [priceMin, setPriceMin] = useState('')
+  const [priceMax, setPriceMax] = useState('')
+  const [sortKey, setSortKey] = useState('fvm')
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
   const [detailId, setDetailId] = useState<number | null>(null)
 
   const prices = useMemo(() => predictPrices(state.players, state.tiers, state.league), [state.players, state.tiers, state.league])
   const tagsMap = useMemo(() => computeTags(state.players), [state.players])
   if (state.players.length === 0) return <main>Studio: carica prima il listone nel Setup.</main>
 
-  // elenco sottocategorie presenti (per il filtro)
+  // elenco sottocategorie e squadre presenti (per i filtri)
   const tagOptions = (() => {
     const seen = new Map<string, string>()
     for (const list of tagsMap.values()) for (const t of list) seen.set(t.id, t.label)
     return [...seen].sort((a, b) => a[1].localeCompare(b[1]))
   })()
+  const teamOptions = [...new Set(state.players.map(p => p.squadra))].sort()
 
+  const pMin = priceMin === '' ? null : Number(priceMin)
+  const pMax = priceMax === '' ? null : Number(priceMax)
   const review = new Set(state.review)
-  const shown = state.players.filter(p =>
-    (role === 'tutti' || p.ruolo === role) &&
-    (tierFilter === 'tutte' || state.tiers[p.id] === tierFilter) &&
-    (!onlyReview || review.has(p.id)) &&
-    (tagFilter === 'tutte' || (tagsMap.get(p.id) ?? []).some(t => t.id === tagFilter)) &&
-    matchesQuery([p.nome, p.squadra], q),
-  ).sort((a, b) => b.fvm - a.fvm)
+  const filtered = state.players.filter(p => {
+    const base = prices.get(p.id)?.base ?? null
+    return (role === 'tutti' || p.ruolo === role) &&
+      (tierFilter === 'tutte' || state.tiers[p.id] === tierFilter) &&
+      (teamFilter === 'tutte' || p.squadra === teamFilter) &&
+      (!onlyReview || review.has(p.id)) &&
+      (tagFilter === 'tutte' || (tagsMap.get(p.id) ?? []).some(t => t.id === tagFilter)) &&
+      (pMin === null || (base !== null && base >= pMin)) &&
+      (pMax === null || (base !== null && base <= pMax)) &&
+      matchesQuery([p.nome, p.squadra], q)
+  })
+
+  const tierIdx = (id: number) => state.tierDefs.findIndex(d => d.id === state.tiers[id])
+  const sortVal = (p: typeof filtered[0]): number | string => {
+    switch (sortKey) {
+      case 'nome': return p.nome.toLowerCase()
+      case 'squadra': return p.squadra
+      case 'ruolo': return p.ruolo
+      case 'fascia': return tierIdx(p.id)
+      case 'titolarita': case 'pv': return p.stats?.pv ?? -1
+      case 'rendimento': case 'fm': return p.stats?.fm ?? -1
+      case 'qta': return p.qtA
+      case 'prezzo': return prices.get(p.id)?.base ?? -1
+      default: return p.fvm
+    }
+  }
+  const shown = [...filtered].sort((a, b) => {
+    const va = sortVal(a), vb = sortVal(b)
+    const c = typeof va === 'string' && typeof vb === 'string' ? va.localeCompare(vb) : (va as number) - (vb as number)
+    return sortDir === 'asc' ? c : -c
+  })
+  const toggleSort = (k: string) => {
+    if (sortKey === k) setSortDir(d => (d === 'asc' ? 'desc' : 'asc'))
+    else { setSortKey(k); setSortDir(k === 'nome' || k === 'squadra' || k === 'ruolo' ? 'asc' : 'desc') }
+  }
+  const arrow = (k: string) => sortKey === k ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''
 
   const isOccasione = (p: typeof shown[0]) => !!p.stats && p.stats.fm >= FM_TITOLARE[p.ruolo] && p.stats.pv >= PV_SOLIDO
     && state.tiers[p.id] !== 'top' && state.tiers[p.id] !== 'semitop'
@@ -87,11 +124,33 @@ export default function StudioTab() {
           <option value="tutte">tutte</option>
           {tagOptions.map(([id, label]) => <option key={id} value={id}>{label}</option>)}
         </select></label>
+        <label> Squadra <select aria-label="SquadraFiltro" value={teamFilter} onChange={e => setTeamFilter(e.target.value)}>
+          <option value="tutte">tutte</option>
+          {teamOptions.map(t => <option key={t} value={t}>{t}</option>)}
+        </select></label>
+        <label> Prezzo previsto <input type="number" aria-label="Prezzo min" placeholder="min" style={{ width: '4.5rem' }} value={priceMin} onChange={e => setPriceMin(e.target.value)} />
+          <input type="number" aria-label="Prezzo max" placeholder="max" style={{ width: '4.5rem' }} value={priceMax} onChange={e => setPriceMax(e.target.value)} /></label>
+        <button onClick={() => { setRole('tutti'); setTierFilter('tutte'); setTeamFilter('tutte'); setTagFilter('tutte'); setQ(''); setOnlyReview(false); setPriceMin(''); setPriceMax('') }}>Azzera filtri</button>
+        <span className="hint"> {shown.length} giocatori</span>
       </section>
 
       <div className="tablescroll">
       <table className="studio-table">
-        <thead><tr><th></th><th>Nome</th><th>Squadra</th><th>R</th><th>Fascia</th><th>Titolarità</th><th>Rendim.</th><th>FVM</th><th>Qt.A</th><th>Fm</th><th>Pv</th><th>Prev.</th><th></th><th>Tag</th></tr></thead>
+        <thead><tr>
+          <th></th>
+          <th className="sortable" onClick={() => toggleSort('nome')}>Nome{arrow('nome')}</th>
+          <th className="sortable" onClick={() => toggleSort('squadra')}>Squadra{arrow('squadra')}</th>
+          <th className="sortable" onClick={() => toggleSort('ruolo')}>R{arrow('ruolo')}</th>
+          <th className="sortable" onClick={() => toggleSort('fascia')}>Fascia{arrow('fascia')}</th>
+          <th className="sortable" onClick={() => toggleSort('titolarita')}>Titolarità{arrow('titolarita')}</th>
+          <th className="sortable" onClick={() => toggleSort('rendimento')}>Rendim.{arrow('rendimento')}</th>
+          <th className="sortable" onClick={() => toggleSort('fvm')}>FVM{arrow('fvm')}</th>
+          <th className="sortable" onClick={() => toggleSort('qta')}>Qt.A{arrow('qta')}</th>
+          <th className="sortable" onClick={() => toggleSort('fm')}>Fm{arrow('fm')}</th>
+          <th className="sortable" onClick={() => toggleSort('pv')}>Pv{arrow('pv')}</th>
+          <th className="sortable" onClick={() => toggleSort('prezzo')}>Prev.{arrow('prezzo')}</th>
+          <th></th><th>Tag</th>
+        </tr></thead>
         <tbody>
           {shown.map(p => {
             const pr = prices.get(p.id)

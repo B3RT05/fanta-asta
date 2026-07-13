@@ -49,6 +49,18 @@ describe('StudioTab', () => {
     expect(screen.getByText('Rrahmani')).toBeInTheDocument()
     expect(screen.queryByText('Lautaro')).not.toBeInTheDocument()
   })
+  it('ordina cliccando l\'intestazione FVM (toggle desc/asc)', async () => {
+    render(<Harness init={init} />)
+    const first = () => within(screen.getAllByRole('row')[1]).getByRole('button', { name: /^(Lautaro|Rrahmani)$/ }).textContent
+    expect(first()).toBe('Lautaro')   // default: FVM decrescente (300 > 40)
+    await userEvent.click(screen.getByText(/^FVM/))
+    expect(first()).toBe('Rrahmani')  // ora crescente
+  })
+  it('filtra per squadra', async () => {
+    render(<Harness init={init} />)
+    await userEvent.selectOptions(screen.getByLabelText('SquadraFiltro'), 'Inter')
+    expect(screen.getByText('Lautaro')).toBeInTheDocument()
+  })
   it('clic sul nome apre la scheda con tutti i dati del giocatore', async () => {
     render(<Harness init={init} />)
     await userEvent.click(screen.getByRole('button', { name: 'Lautaro' }))
