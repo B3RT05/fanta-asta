@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { computeTags, dominantTags } from '@/logic/tags'
+import { computeTags, dominantTags, tagsCompatible } from '@/logic/tags'
 import type { Player, PlayerStats } from '@/logic/types'
 
 const st = (o: Partial<PlayerStats>): PlayerStats =>
@@ -49,6 +49,19 @@ describe('computeTags', () => {
     const map = computeTags([P(10, 'A', undefined, { qtA: 25, qtI: 10 })]) // ascesa, ma no bomber
     expect(has(map.get(10), 'ascesa')).toBe(true)
     expect(has(map.get(10), 'bomber')).toBe(false)
+  })
+})
+
+describe('tagsCompatible', () => {
+  it('stesso ruolo o con tag trasversali -> true (E)', () => {
+    expect(tagsCompatible(['bomber', 'cecchino'])).toBe(true)       // A + A
+    expect(tagsCompatible(['bomber', 'titolarissimo'])).toBe(true)  // A + trasversale
+    expect(tagsCompatible(['dbonus', 'modificatore'])).toBe(true)   // D + D
+    expect(tagsCompatible(['rigorista'])).toBe(true)
+  })
+  it('ruoli disgiunti -> false (O)', () => {
+    expect(tagsCompatible(['bomber', 'modificatore'])).toBe(false)  // A vs D
+    expect(tagsCompatible(['saracinesca', 'goleador'])).toBe(false) // P vs C
   })
 })
 

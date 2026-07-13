@@ -61,13 +61,21 @@ describe('StudioTab', () => {
     await userEvent.selectOptions(screen.getByLabelText('SquadraFiltro'), 'Inter')
     expect(screen.getByText('Lautaro')).toBeInTheDocument()
   })
-  it('filtro sottocategorie multiplo (OR)', async () => {
+  it('tag di ruoli diversi -> O (unione)', async () => {
     render(<Harness init={init} />)
     await userEvent.click(screen.getByRole('button', { name: 'tag Bomber' }))
     expect(screen.getByText('Lautaro')).toBeInTheDocument()
     expect(screen.queryByText('Rrahmani')).not.toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: 'tag Da bonus' }))
-    expect(screen.getByText('Rrahmani')).toBeInTheDocument() // OR: entra anche il difensore da bonus
+    expect(screen.getByText('Rrahmani')).toBeInTheDocument() // A vs D -> O: entra anche il difensore
+  })
+  it('tag compatibili sullo stesso ruolo -> E (intersezione)', async () => {
+    render(<Harness init={init} />)
+    await userEvent.click(screen.getByRole('button', { name: 'tag Bomber' }))
+    await userEvent.click(screen.getByRole('button', { name: 'tag Titolarissimo' }))
+    expect(screen.getByText('Lautaro')).toBeInTheDocument()
+    // Rrahmani è Titolarissimo ma non Bomber -> escluso dall'AND
+    expect(screen.queryByText('Rrahmani')).not.toBeInTheDocument()
   })
   it('clic sul nome apre la scheda con tutti i dati del giocatore', async () => {
     render(<Harness init={init} />)

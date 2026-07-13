@@ -4,7 +4,7 @@ import PlayerModal from './PlayerModal'
 import Meter from './Meter'
 import TeamChip from './TeamChip'
 import { predictPrices } from '@/logic/pricing'
-import { computeTags } from '@/logic/tags'
+import { computeTags, tagsCompatible } from '@/logic/tags'
 import { matchesQuery } from '@/logic/search'
 import { FM_TITOLARE, PV_SOLIDO, PV_TITOLARE } from '@/logic/tiering'
 import type { Role, TierId } from '@/logic/types'
@@ -37,6 +37,14 @@ export default function StudioTab() {
 
   const pMin = priceMin === '' ? null : Number(priceMin)
   const pMax = priceMax === '' ? null : Number(priceMax)
+  // se i tag scelti possono stare sullo stesso ruolo -> E (tutti), altrimenti -> O (almeno uno)
+  const tagIds = [...selectedTags]
+  const tagAnd = tagIds.length > 1 && tagsCompatible(tagIds)
+  const matchTags = (p: typeof state.players[0]) => {
+    if (selectedTags.size === 0) return true
+    const pt = tagsMap.get(p.id) ?? []
+    return tagAnd ? tagIds.every(id => pt.some(t => t.id === id)) : pt.some(t => selectedTags.has(t.id))
+  }
   const review = new Set(state.review)
   const filtered = state.players.filter(p => {
     const base = prices.get(p.id)?.base ?? null
@@ -44,7 +52,7 @@ export default function StudioTab() {
       (tierFilter === 'tutte' || state.tiers[p.id] === tierFilter) &&
       (teamFilter === 'tutte' || p.squadra === teamFilter) &&
       (!onlyReview || review.has(p.id)) &&
-      (selectedTags.size === 0 || (tagsMap.get(p.id) ?? []).some(t => selectedTags.has(t.id))) &&
+      matchTags(p) &&
       (pMin === null || (base !== null && base >= pMin)) &&
       (pMax === null || (base !== null && base <= pMax)) &&
       matchesQuery([p.nome, p.squadra], q)
@@ -131,7 +139,7 @@ export default function StudioTab() {
       </section>
 
       <section className="tagfilter" aria-label="Filtro sottocategorie">
-        <span className="hint">Sottocategorie (clic per selezionarne più di una):</span>
+        <span className="hint">Sottocategorie (clic per selezionarne più di una){selectedTags.size > 1 ? tagAnd ? ' — stesso ruolo: E (tutti i tag)' : ' — ruoli diversi: O (almeno uno)' : ''}:</span>
         <div className="tags">
           {tagOptions.map(([id, label]) => (
             <button key={id} aria-label={`tag ${label}`} className={`badge tagpick ${selectedTags.has(id) ? 'on' : ''}`}

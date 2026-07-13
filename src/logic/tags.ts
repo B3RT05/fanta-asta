@@ -1,6 +1,29 @@
 import { DIFF_ASCESA, PV_SOLIDO, PV_TITOLARE } from './tiering'
 import type { Player, Role } from './types'
 
+const ALL_ROLES: Role[] = ['P', 'D', 'C', 'A']
+// a quali ruoli appartiene ogni tag (per decidere E vs O nei filtri)
+export const TAG_ROLES: Record<string, Role[]> = {
+  ascesa: ALL_ROLES, calo: ALL_ROLES, rigorista: ALL_ROLES, indisciplinato: ALL_ROLES,
+  panchinaro: ALL_ROLES, lusso: ALL_ROLES, titolarissimo: ALL_ROLES,
+  saracinesca: ['P'], colabrodo: ['P'], pararigori: ['P'],
+  dbonus: ['D'], modificatore: ['D'], autogol: ['D'],
+  bonusman: ['C'], goleador: ['C'], assistman: ['C', 'A'],
+  bomber: ['A'], cecchino: ['A'], sbagliarigori: ['A'],
+}
+
+/** true se i tag possono coesistere su uno stesso ruolo (→ filtro in AND);
+ *  false se appartengono a ruoli disgiunti (→ filtro in OR). */
+export function tagsCompatible(ids: string[]): boolean {
+  let roles = new Set<Role>(ALL_ROLES)
+  for (const id of ids) {
+    const r = new Set(TAG_ROLES[id] ?? ALL_ROLES)
+    roles = new Set([...roles].filter(x => r.has(x)))
+    if (roles.size === 0) return false
+  }
+  return true
+}
+
 export type TagKind = 'pro' | 'malus' | 'risk'
 export interface Tag { id: string; label: string; kind: TagKind }
 
