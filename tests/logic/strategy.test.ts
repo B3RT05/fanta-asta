@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { generateStrategy } from '@/logic/strategy'
 import { computeTags } from '@/logic/tags'
 import { predictPrices } from '@/logic/pricing'
-import { DEFAULT_LEAGUE, type Player, type PlayerStats, type TierId } from '@/logic/types'
+import { DEFAULT_LEAGUE, type Player, type PlayerStats, type PriceRange, type TierId } from '@/logic/types'
 
 const st = (o: Partial<PlayerStats>): PlayerStats =>
   ({ pv: 30, mv: 6, fm: 6, gf: 0, gs: 0, rp: 0, rc: 0, rPlus: 0, rMinus: 0, ass: 0, amm: 0, esp: 0, au: 0, ...o })
@@ -58,6 +58,20 @@ describe('generateStrategy', () => {
     const s = generateStrategy('due punte da tanti gol', players, tiers, tagsMap, prices, DEFAULT_LEAGUE)
     expect(s.recognized).toContain('attacco')
   })
+  it('costruisce entro budget ai prezzi reali (non scala i prezzi)', () => {
+    // prezzi reali fissi a 10; i tetti generati devono essere 10 (titolari) o 1 (riempitivi), mai scalati
+    const pr = new Map<number, PriceRange>(players.map(p => [p.id, { base: 10, min: 8, max: 12 }]))
+    const s = generateStrategy('', players, tiers, tagsMap, pr, DEFAULT_LEAGUE)
+    const total = Object.values(s.caps).reduce((a, b) => a + b, 0)
+    expect(total).toBeLessThanOrEqual(DEFAULT_LEAGUE.budget) // mai oltre il budget
+    for (const c of Object.values(s.caps)) expect([1, 10]).toContain(c) // prezzo reale o riempitivo, non scalato
+  })
+  it('rispetta il prezzo impostato dall\'utente (Mio €)', () => {
+    const pr = new Map<number, PriceRange>(players.map(p => [p.id, { base: 30, min: 25, max: 35 }]))
+    const caps = { 100: 7 } // l'utente valuta poco un attaccante
+    const s = generateStrategy('', players, tiers, tagsMap, pr, DEFAULT_LEAGUE, caps)
+    if (s.targets.includes(100)) expect(s.caps[100]).toBe(7) // usa il suo prezzo, non il previsto
+  })
   it('produce sempre obiettivi e note', () => {
     const s = generateStrategy('', players, tiers, tagsMap, prices, DEFAULT_LEAGUE)
     expect(s.targets.length).toBeGreaterThan(0)
@@ -104,8 +118,10 @@ describe('generateStrategy', () => {
       D(80, 5.7, 0, 0, 4, 'Empoli'), D(81, 5.6, 0, 0, 3, 'Verona'),
     ]
     const tt: Record<number, TierId> = {}; for (const p of pool) tt[p.id] = p.fvm > 30 ? 'semitop' : p.fvm > 12 ? 'titolare' : 'riempitivo'
-    const s = generateStrategy('', pool, tt, computeTags(pool), predictPrices(pool, tt, DEFAULT_LEAGUE), DEFAULT_LEAGUE)
-    // i due difensori da bonus, pur avendo FVM basso, sono titolari (tetto > 1) grazie al mix
+    // prezzi reali modesti (i difensori da bonus costano 10, affordabili come titolari)
+    const pr = new Map<number, PriceRange>(pool.map(p => [p.id, { base: 10, min: 8, max: 12 }]))
+    const s = generateStrategy('', pool, tt, computeTags(pool), pr, DEFAULT_LEAGUE)
+    // i due difensori da bonus, pur avendo FVM basso, sono titolari (tetto = prezzo reale > 1) grazie al mix
     expect(s.caps[90]).toBeGreaterThan(1)
     expect(s.caps[91]).toBeGreaterThan(1)
   })

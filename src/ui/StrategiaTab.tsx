@@ -18,7 +18,7 @@ export default function StrategiaTab() {
   const [desc, setDesc] = useState('')
 
   const genera = () => {
-    const s = generateStrategy(desc, state.players, state.tiers, tagsMap, prices, state.league)
+    const s = generateStrategy(desc, state.players, state.tiers, tagsMap, prices, state.league, state.targetCaps ?? {})
     const kw = s.recognized.length ? `Riconosciuto: ${s.recognized.join(', ')}.` : 'Nessuna parola chiave riconosciuta: genero una bozza equilibrata.'
     if (window.confirm(`${kw}\n\nGenero la strategia e sovrascrivo budget, obiettivi e note attuali?`))
       dispatch({ type: 'applyStrategy', rolePlan: s.rolePlan, targets: s.targets, caps: s.caps, notes: s.notes })

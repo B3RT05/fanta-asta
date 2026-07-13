@@ -24,22 +24,6 @@ const STARTERS: Record<Role, number> = { P: 1, D: 5, C: 5, A: 3 }
 // difesa/porta nessun limite (portiere+difensori stessa squadra = modificatore).
 const CLUB_CAP: Record<Role, number> = { P: 3, D: 8, C: 2, A: 1 }
 
-/** Sceglie n giocatori dalla lista ordinata rispettando il tetto per club; se
- *  non bastano club diversi, rilassa il vincolo pur di riempire gli slot. */
-function pickWithCap(sorted: Player[], n: number, cap: number, used: Set<number>, clubCount: Map<string, number>): Player[] {
-  const picked: Player[] = []
-  for (const relax of [false, true]) {
-    for (const p of sorted) {
-      if (picked.length >= n) break
-      if (used.has(p.id)) continue
-      if (!relax && (clubCount.get(p.squadra) ?? 0) >= cap) continue
-      picked.push(p); used.add(p.id)
-      clubCount.set(p.squadra, (clubCount.get(p.squadra) ?? 0) + 1)
-    }
-    if (picked.length >= n) break
-  }
-  return picked
-}
 
 // tag preferiti per intento (per la scelta degli obiettivi)
 const PREF: Record<string, string[]> = {
@@ -51,6 +35,7 @@ const PREF: Record<string, string[]> = {
 export function generateStrategy(
   description: string, players: Player[], tiers: Record<number, TierId>,
   tagsMap: Map<number, Tag[]>, prices: Map<number, PriceRange>, league: LeagueConfig,
+  userCaps: Record<number, number> = {},
 ): GeneratedStrategy {
   const q = normalizeText(description)
   const has = (...ks: string[]) => ks.some(k => q.includes(k))
@@ -116,50 +101,68 @@ export function generateStrategy(
     const m = (id: number) => meta.get(id)!
     const used = new Set<number>()
     const clubCount = new Map<string, number>()
-    const cap = CLUB_CAP[role]
+    const clubCap = CLUB_CAP[role]
+    // costo REALE: prezzo impostato dall'utente, altrimenti prezzo previsto (mai scalato)
+    const cost = (p: Player) => Math.max(1, Math.round(userCaps[p.id] ?? m(p.id).price))
 
-    // 1) titolari garantiti = i migliori per fascia/qualità, diversificando i club
+    // selezione entro il budget di reparto ai prezzi reali: lascia sempre 1
+    // credito per ogni altro slot ancora da riempire, così la rosa sta nel budget
+    let budgetLeft = rolePlan[role]
+    let slotsToFill = slots
+    const take = (sorted: Player[], n: number): Player[] => {
+      const picks: Player[] = []
+      for (const relax of [false, true]) {
+        for (const p of sorted) {
+          if (picks.length >= n) break
+          if (used.has(p.id)) continue
+          if (!relax && (clubCount.get(p.squadra) ?? 0) >= clubCap) continue
+          if (budgetLeft - cost(p) < slotsToFill - 1) continue // non affordabile lasciando 1 agli altri slot
+          picks.push(p); used.add(p.id)
+          clubCount.set(p.squadra, (clubCount.get(p.squadra) ?? 0) + 1)
+          budgetLeft -= cost(p); slotsToFill--
+        }
+        if (picks.length >= n) break
+      }
+      return picks
+    }
+
+    // 1) titolari garantiti (i migliori affordabili, diversificando i club)
     const byQuality = [...pool].sort((a, b) => (m(b.id).rank + m(b.id).tagBonus) - (m(a.id).rank + m(a.id).tagBonus) || m(b.id).fvm - m(a.id).fvm)
     const starterQ = Math.min(STARTERS[role], slots)
     let starters: Player[]
     if (role === 'D') {
-      // difesa: mescola difensori DA MODIFICATORE (media voto costante) e DA BONUS (gol+assist)
       const modifQ = Math.min(3, starterQ)
       const byModif = [...pool].sort((a, b) => m(b.id).mv - m(a.id).mv || (m(b.id).rank - m(a.id).rank) || m(b.id).fvm - m(a.id).fvm)
-      const modif = pickWithCap(byModif, modifQ, cap, used, clubCount)
+      const modif = take(byModif, modifQ)
       const byBonus = pool.filter(p => !used.has(p.id)).sort((a, b) => m(b.id).bonusVal - m(a.id).bonusVal || (m(b.id).rank - m(a.id).rank) || m(b.id).fvm - m(a.id).fvm)
-      const bonus = pickWithCap(byBonus, starterQ - modif.length, cap, used, clubCount)
+      const bonus = take(byBonus, starterQ - modif.length)
       starters = [...modif, ...bonus]
     } else {
-      starters = pickWithCap(byQuality, starterQ, cap, used, clubCount)
+      starters = take(byQuality, starterQ)
     }
 
     // 2) scommesse: fascia scommessa/in ascesa, cercate nelle PICCOLE squadre
-    //    (talento a basso costo), stesso tetto per club
     const scommQ = Math.min(scommPerRole[role], slots - starters.length)
     const scommSorted = byQuality.filter(p => !used.has(p.id))
       .sort((a, b) =>
         (Number(m(b.id).isScomm) - Number(m(a.id).isScomm)) ||
-        (Number(!big.has(b.squadra)) - Number(!big.has(a.squadra))) ||  // preferisci le piccole
+        (Number(!big.has(b.squadra)) - Number(!big.has(a.squadra))) ||
         m(b.id).fvm - m(a.id).fvm)
-    const scommesse = pickWithCap(scommSorted, scommQ, cap, used, clubCount)
+    const scommesse = take(scommSorted, scommQ)
 
-    // 3) riempitivi = i più economici per completare gli slot
-    const fillerQ = Math.max(0, slots - starters.length - scommesse.length)
+    // 3) riempitivi da 1 credito: completano gli slot con i più economici
+    const paid = [...starters, ...scommesse]
     const fillers = pool.filter(p => !used.has(p.id))
       .sort((a, b) => m(a.id).price - m(b.id).price || m(a.id).fvm - m(b.id).fvm)
-      .slice(0, fillerQ)
+      .slice(0, slots - paid.length)
     fillers.forEach(p => used.add(p.id))
 
-    // tetti: riempitivi a 1, il resto del budget di reparto sui titolari/scommesse (∝ prezzo previsto)
-    const nonFiller = [...starters, ...scommesse]
-    const rawSum = nonFiller.reduce((s, p) => s + m(p.id).price, 0) || 1
-    const avail = Math.max(nonFiller.length, rolePlan[role] - fillers.length)
-    const scale = avail / rawSum
-    for (const p of nonFiller) { targets.push(p.id); caps[p.id] = Math.max(1, Math.round(m(p.id).price * scale)) }
+    // tetti = costo REALE per i titolari/scommesse, 1 per i riempitivi
+    for (const p of paid) { targets.push(p.id); caps[p.id] = cost(p) }
     for (const p of fillers) { targets.push(p.id); caps[p.id] = 1 }
     nStarters += starters.length; nScomm += scommesse.length; nFiller += fillers.length
   }
+  const capTotal = Object.values(caps).reduce((s, c) => s + c, 0)
 
   const pct = (r: Role) => Math.round(100 * rolePlan[r] / league.budget)
   const slotsTot = roles.reduce((s, r) => s + league.slots[r], 0)
@@ -170,8 +173,9 @@ export function generateStrategy(
     ...roles.map(r => `  ${ROLE_NAME[r]}: ${rolePlan[r]} crediti (${pct(r)}%)`),
     '',
     `Rosa completa: ${targets.length}/${slotsTot} giocatori — ${nStarters} titolari garantiti, ${nScomm} scommesse, ${nFiller} riempitivi da 1.`,
+    `Spesa stimata ai prezzi reali: ${capTotal}/${league.budget} crediti (rispetta il tuo prezzo dove l'hai impostato, altrimenti il previsto).`,
     'Club diversificati: max 1 attaccante e 2 centrocampisti per squadra (in difesa nessun limite, per il modificatore).',
-    'Nella lista della spesa trovi tutti gli slot con il "max che pago" precompilato. Ritocca a mano: è una bozza di partenza.',
+    'Nella lista della spesa trovi tutti gli slot col prezzo reale. Ritocca a mano: è una bozza di partenza.',
   ].join('\n')
 
   return { rolePlan, targets, caps, notes, recognized }

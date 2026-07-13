@@ -64,7 +64,8 @@ export function reducer(state: AppState, action: Action): AppState {
     case 'setTargetCap':
       return { ...state, targetCaps: { ...(state.targetCaps ?? {}), [action.playerId]: action.cap } }
     case 'applyStrategy':
-      return { ...state, rolePlan: action.rolePlan, targets: action.targets, targetCaps: action.caps, strategyNotes: action.notes }
+      // unisce i tetti: conserva i prezzi che l'utente aveva già impostato
+      return { ...state, rolePlan: action.rolePlan, targets: action.targets, targetCaps: { ...(state.targetCaps ?? {}), ...action.caps }, strategyNotes: action.notes }
     case 'recomputeTiers': {
       const { tiers, review } = proposeTiers(state.players)
       return { ...state, tiers, review }
